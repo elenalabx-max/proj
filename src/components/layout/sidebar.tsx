@@ -77,7 +77,12 @@ export function Sidebar() {
       <nav className="flex flex-col gap-4">
         <div className="flex flex-col gap-0.5">
           <NavLink href="/today" icon={<TodayIcon />} label="Today" active={pathname === "/today"} />
-          <DisabledNavItem icon={<CalendarIcon />} label="Calendar" phase="Phase 3" />
+          <NavLink
+            href="/calendar"
+            icon={<CalendarIcon />}
+            label="Calendar"
+            active={pathname.startsWith("/calendar")}
+          />
         </div>
 
         <div className="flex flex-col gap-0.5 border-t border-neutral-200 pt-3">

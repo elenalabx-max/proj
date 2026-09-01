@@ -155,6 +155,59 @@ function TaskPanelBody({
           />
         </div>
 
+        <div className="space-y-2 rounded-md border border-neutral-200 p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-neutral-500">排定時間（Calendar 上顯示的時間）</span>
+            <label className="flex items-center gap-1.5 text-xs">
+              <input
+                type="checkbox"
+                checked={task.is_all_day}
+                onChange={(e) =>
+                  updateTask.mutate({
+                    id: task.id,
+                    patch: e.target.checked
+                      ? { is_all_day: true, scheduled_start: null, scheduled_end: null }
+                      : { is_all_day: false },
+                  })
+                }
+              />
+              全天
+            </label>
+          </div>
+
+          <input
+            type="date"
+            value={task.scheduled_date ?? ""}
+            onChange={(e) => updateTask.mutate({ id: task.id, patch: { scheduled_date: e.target.value || null } })}
+            className="w-full rounded-md border border-neutral-300 px-2 py-1.5"
+          />
+
+          {!task.is_all_day && (
+            <div className="flex items-center gap-2">
+              <input
+                type="time"
+                value={task.scheduled_start ?? ""}
+                onChange={(e) =>
+                  updateTask.mutate({ id: task.id, patch: { scheduled_start: e.target.value || null } })
+                }
+                className="w-full rounded-md border border-neutral-300 px-2 py-1.5"
+              />
+              <span className="text-neutral-400">–</span>
+              <input
+                type="time"
+                value={task.scheduled_end ?? ""}
+                onChange={(e) =>
+                  updateTask.mutate({ id: task.id, patch: { scheduled_end: e.target.value || null } })
+                }
+                className="w-full rounded-md border border-neutral-300 px-2 py-1.5"
+              />
+            </div>
+          )}
+          {!task.scheduled_date && (
+            <p className="text-[11px] text-neutral-400">先選日期，才會出現在 Calendar 上。</p>
+          )}
+        </div>
+
         <div>
           <label className="mb-1 block text-xs font-medium text-neutral-500">Notes</label>
           <textarea
