@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAreas } from "@/hooks/use-areas";
 import { useProjects } from "@/hooks/use-projects";
+import { useReviewTasks } from "@/hooks/use-tasks";
 import {
   CalendarIcon,
   CompletedIcon,
@@ -65,6 +66,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const { data: areas } = useAreas();
   const { data: projects } = useProjects();
+  const { data: reviewTasks } = useReviewTasks();
 
   const workProjects = (projects ?? []).filter(
     (p) => areas?.find((a) => a.id === p.area_id)?.type === "work",
@@ -87,8 +89,15 @@ export function Sidebar() {
 
         <div className="flex flex-col gap-0.5 border-t border-neutral-200 pt-3">
           <NavLink href="/inbox" icon={<InboxIcon />} label="Inbox" active={pathname === "/inbox"} />
-          <DisabledNavItem icon={<WaitingIcon />} label="Waiting" phase="Phase 6" />
-          <DisabledNavItem icon={<ReviewIcon />} label="Review" phase="Phase 6" />
+          <NavLink href="/waiting" icon={<WaitingIcon />} label="Waiting" active={pathname === "/waiting"} />
+          <div className="relative">
+            <NavLink href="/review" icon={<ReviewIcon />} label="Review" active={pathname === "/review"} />
+            {!!reviewTasks?.length && (
+              <span className="absolute top-1.5 right-2.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
+                {reviewTasks.length}
+              </span>
+            )}
+          </div>
           <DisabledNavItem icon={<ForgottenIcon />} label="Forgotten" phase="Phase 9" />
         </div>
 

@@ -149,6 +149,51 @@ export function useCompleteTask() {
   });
 }
 
+export type TaskWithAssignee = Task & { people: { name: string } | null };
+
+// Waiting：已交辦、還沒到 Follow-up 時間（或根本沒設）的任務——單純列出讓你知道還欠什麼。
+export function useWaitingTasks() {
+  const { user } = useUser();
+
+  return useQuery({
+    queryKey: ["tasks", "waiting", user?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*, people(name)")
+        .eq("status", "waiting")
+        .is("archived_at", null)
+        .order("follow_up_at", { ascending: true, nullsFirst: false });
+      if (error) throw error;
+      return data as TaskWithAssignee[];
+    },
+    enabled: !!user,
+  });
+}
+
+// Review：Follow-up 時間已經到了，需要我確認進度的那些。
+export function useReviewTasks() {
+  const { user } = useUser();
+
+  return useQuery({
+    queryKey: ["tasks", "review", user?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*, people(name)")
+        .eq("status", "waiting")
+        .lte("follow_up_at", new Date().toISOString())
+        .is("archived_at", null)
+        .order("follow_up_at", { ascending: true });
+      if (error) throw error;
+      return data as TaskWithAssignee[];
+    },
+    enabled: !!user,
+  });
+}
+
 // 輕量版任務數統計，給 Project 卡片用（Phase 8 才會做完整 Project Statistics）。
 export function useTaskCountsByProject() {
   const { user } = useUser();

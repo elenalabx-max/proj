@@ -7,6 +7,7 @@ import { useAreas } from "@/hooks/use-areas";
 import { useProjects } from "@/hooks/use-projects";
 import { TASK_STATUS_LABEL, type Area, type Project, type Task, type TaskStatus } from "@/lib/types";
 import { Checkbox } from "@/components/ui/checkbox";
+import { AssigneeSection } from "./assignee-section";
 import { SubtaskSection } from "./subtask-section";
 import { ReminderSection } from "./reminder-section";
 import { RepeatSection } from "./repeat-section";
@@ -204,6 +205,7 @@ function TaskPanelBody({
           )}
         </div>
 
+        <AssigneeSection task={task} />
         <SubtaskSection task={task} />
         <ReminderSection task={task} />
         <RepeatSection task={task} />
