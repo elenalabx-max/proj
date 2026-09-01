@@ -11,6 +11,7 @@ import { useTaskPanelStore } from "@/stores/task-panel";
 import { useCancelOccurrence, useRecurringOccurrences, useSetOccurrenceCompleted } from "@/hooks/use-recurrence";
 import { getContrastTextColor, resolveTaskColor } from "@/lib/colors";
 import { minutesToTime, timeToMinutes, toISODate, WEEKDAY_LABELS_MON_FIRST } from "@/lib/date";
+import { layoutOverlaps, type OverlapSlot } from "@/lib/overlap-layout";
 import type { Task } from "@/lib/types";
 
 const GRID_START_MIN = 360; // 06:00
@@ -246,10 +247,14 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
     return <p className="text-sm text-neutral-400">左側篩選都關閉了，沒有東西可以顯示。</p>;
   }
 
-  function renderBlock(b: Block) {
+  function renderBlock(b: Block, slot: OverlapSlot) {
     const override = overridePos?.blockId === b.id ? overridePos : null;
     const top = override?.top ?? topFor(b);
     const height = override?.height ?? heightFor(b);
+    // 時間重疊的色塊並排顯示（像 Google Calendar），欄與欄之間留一點縫。
+    const gapPx = 2;
+    const left = `calc(${(slot.col / slot.cols) * 100}% + ${slot.col === 0 ? 4 : gapPx}px)`;
+    const width = `calc(${100 / slot.cols}% - ${slot.col === 0 ? 4 + gapPx : gapPx * 2}px)`;
 
     return (
       <div
@@ -258,15 +263,18 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
         onClick={() => {
           if (b.occurrence) setOccurrenceCompleted.mutate({ ...b.occurrence, completed: !b.occurrence.completed });
         }}
-        className={`absolute left-1 right-1 overflow-hidden rounded px-2 py-1 text-xs select-none ${
+        className={`absolute overflow-hidden rounded px-2 py-1 text-xs select-none ${
           b.realTask ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
         }`}
         style={{
           top,
           height,
+          left,
+          width,
           background: b.color,
           color: getContrastTextColor(b.color),
           opacity: b.occurrence?.completed ? 0.5 : 1,
+          zIndex: overridePos?.blockId === b.id ? 10 : slot.col + 1,
         }}
       >
         <div className="flex items-center gap-1">
@@ -378,7 +386,11 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
                 {hourMarks.map((m) => (
                   <div key={m} className="absolute left-0 right-0 border-t border-neutral-100" style={{ top: m - GRID_START_MIN }} />
                 ))}
-                {col.blocks.filter((b) => !b.is_all_day).map(renderBlock)}
+                {(() => {
+                  const timedBlocks = col.blocks.filter((b) => !b.is_all_day);
+                  const layout = layoutOverlaps(timedBlocks.map((b) => ({ id: b.id, top: topFor(b), height: heightFor(b) })));
+                  return timedBlocks.map((b) => renderBlock(b, layout.get(b.id) ?? { col: 0, cols: 1 }));
+                })()}
               </div>
             ))}
           </div>
