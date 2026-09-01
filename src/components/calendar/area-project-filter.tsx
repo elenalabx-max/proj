@@ -3,7 +3,7 @@
 import { useAreas } from "@/hooks/use-areas";
 import { useProjects } from "@/hooks/use-projects";
 import { useCalendarFilterStore } from "@/stores/calendar-filter";
-import { Checkbox } from "@/components/ui/checkbox";
+import { EyeToggle } from "@/components/ui/eye-toggle";
 
 export function AreaProjectFilter() {
   const { data: areas } = useAreas();
@@ -22,7 +22,7 @@ export function AreaProjectFilter() {
 
   return (
     <div className="w-44 shrink-0 space-y-3 text-sm">
-      <Checkbox
+      <EyeToggle
         checked={showPersonal}
         onChange={togglePersonal}
         className="font-medium text-neutral-800"
@@ -30,7 +30,7 @@ export function AreaProjectFilter() {
       />
 
       <div>
-        <Checkbox
+        <EyeToggle
           checked={showWork}
           onChange={toggleWork}
           className="font-medium text-neutral-800"
@@ -39,7 +39,7 @@ export function AreaProjectFilter() {
         {showWork && (
           <div className="mt-1.5 ml-6 space-y-1.5">
             {workProjects.map((p) => (
-              <Checkbox
+              <EyeToggle
                 key={p.id}
                 checked={isProjectVisible(p.id)}
                 onChange={() => toggleProject(p.id)}
