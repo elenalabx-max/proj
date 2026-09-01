@@ -8,6 +8,7 @@ import { useProjects } from "@/hooks/use-projects";
 import { useUserSettings } from "@/hooks/use-user-settings";
 import { useCalendarFilterStore } from "@/stores/calendar-filter";
 import { useTaskPanelStore } from "@/stores/task-panel";
+import { useCancelOccurrence, useRecurringOccurrences, useSetOccurrenceCompleted } from "@/hooks/use-recurrence";
 import { getContrastTextColor, resolveTaskColor } from "@/lib/colors";
 import { minutesToTime, timeToMinutes, toISODate } from "@/lib/date";
 import type { Task } from "@/lib/types";
@@ -21,66 +22,121 @@ function snap(v: number) {
   return Math.round(v / SNAP) * SNAP;
 }
 
+type Block = {
+  id: string;
+  title: string;
+  scheduled_start: string | null;
+  scheduled_end: string | null;
+  is_all_day: boolean;
+  areaType: "personal" | "work" | null;
+  color: string;
+  // 只有真的 Task（非重複展開出來的那次）才能拖曳/縮放；重複的那次只能點一下完成/取消。
+  realTask: Task | null;
+  occurrence: { ruleId: string; taskId: string; date: string; completed: boolean } | null;
+};
+
 type DragState =
-  | { mode: "move"; taskId: string; startY: number; startTop: number; height: number }
-  | { mode: "resize"; taskId: string; startY: number; top: number; startHeight: number };
+  | { mode: "move"; blockId: string; startY: number; startTop: number; height: number }
+  | { mode: "resize"; blockId: string; startY: number; top: number; startHeight: number };
 
 export function DayTimeline({ date }: { date: Date }) {
   const iso = toISODate(date);
   const { data: tasks } = useTasksInRange(iso, iso);
+  const { data: occurrences } = useRecurringOccurrences(iso, iso);
   const { data: areas } = useAreas();
   const { data: projects } = useProjects();
   const { data: settings } = useUserSettings();
   const updateTask = useUpdateTask();
   const createTask = useCreateTask();
   const openTask = useTaskPanelStore((s) => s.open);
+  const setOccurrenceCompleted = useSetOccurrenceCompleted();
+  const cancelOccurrence = useCancelOccurrence();
 
   const showPersonal = useCalendarFilterStore((s) => s.showPersonal);
   const showWork = useCalendarFilterStore((s) => s.showWork);
   const isProjectVisible = useCalendarFilterStore((s) => s.isProjectVisible);
 
-  const [overridePos, setOverridePos] = useState<{ taskId: string; top: number; height: number } | null>(null);
+  const [overridePos, setOverridePos] = useState<{ blockId: string; top: number; height: number } | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const movedRef = useRef(false);
 
-  function areaTypeOf(task: Task) {
-    return areas?.find((a) => a.id === task.area_id)?.type ?? null;
+  function areaTypeOf(areaId: string | null) {
+    return areas?.find((a) => a.id === areaId)?.type ?? null;
   }
-  function colorOf(task: Task) {
-    const project = projects?.find((p) => p.id === task.project_id);
+  function colorFor(areaType: "personal" | "work" | null, projectId: string | null) {
+    const project = projects?.find((p) => p.id === projectId);
     return resolveTaskColor({
-      areaType: areaTypeOf(task),
+      areaType,
       projectColor: project?.color,
       personalDefaultColor: settings?.personal_default_color ?? "#9a86ac",
       workFallbackColor: settings?.work_fallback_color ?? "#5b7f9a",
     });
   }
-
-  const visible = (tasks ?? []).filter((t) => {
-    const type = areaTypeOf(t);
-    if (type === "personal") return showPersonal;
-    if (type === "work") return showWork && (!t.project_id || isProjectVisible(t.project_id));
+  function isVisible(areaType: "personal" | "work" | null, projectId: string | null) {
+    if (areaType === "personal") return showPersonal;
+    if (areaType === "work") return showWork && (!projectId || isProjectVisible(projectId));
     return showPersonal || showWork;
-  });
-
-  const allDay = visible.filter((t) => t.is_all_day);
-  const timed = visible.filter((t) => !t.is_all_day && t.scheduled_start && t.scheduled_end);
-
-  const isPersonal = (t: Task) => areaTypeOf(t) === "personal";
-  const workAllDay = allDay.filter((t) => !isPersonal(t));
-  const personalAllDay = allDay.filter(isPersonal);
-  const workTasks = timed.filter((t) => !isPersonal(t));
-  const personalTasks = timed.filter(isPersonal);
-
-  const lanes: { key: string; label: string; tasks: Task[] }[] = [];
-  if (showWork) lanes.push({ key: "work", label: "工作 Work", tasks: workTasks });
-  if (showPersonal) lanes.push({ key: "personal", label: "個人 Personal", tasks: personalTasks });
-
-  function topFor(t: Task) {
-    return timeToMinutes(t.scheduled_start!) - GRID_START_MIN;
   }
-  function heightFor(t: Task) {
-    return Math.max(SNAP, timeToMinutes(t.scheduled_end!) - timeToMinutes(t.scheduled_start!));
+
+  const blocks: Block[] = [];
+
+  for (const t of tasks ?? []) {
+    if (t.recurrence_rule_id) continue; // 這種改由下面的 occurrences 展開，避免重複顯示
+    const areaType = areaTypeOf(t.area_id);
+    if (!isVisible(areaType, t.project_id)) continue;
+    blocks.push({
+      id: t.id,
+      title: t.title,
+      scheduled_start: t.scheduled_start,
+      scheduled_end: t.scheduled_end,
+      is_all_day: t.is_all_day,
+      areaType,
+      color: colorFor(areaType, t.project_id),
+      realTask: t,
+      occurrence: null,
+    });
+  }
+
+  for (const o of occurrences ?? []) {
+    if (o.date !== iso) continue;
+    const areaType = areaTypeOf(o.masterTask.area_id);
+    if (!isVisible(areaType, o.masterTask.project_id)) continue;
+    blocks.push({
+      id: o.id,
+      title: o.title,
+      scheduled_start: o.scheduled_start,
+      scheduled_end: o.scheduled_end,
+      is_all_day: o.is_all_day,
+      areaType,
+      color: colorFor(areaType, o.masterTask.project_id),
+      realTask: null,
+      occurrence: {
+        ruleId: o.masterTask.recurrence_rule_id!,
+        taskId: o.masterTask.id,
+        date: o.date,
+        completed: o.completed,
+      },
+    });
+  }
+
+  const allDay = blocks.filter((b) => b.is_all_day);
+  const timed = blocks.filter((b) => !b.is_all_day && b.scheduled_start && b.scheduled_end);
+
+  const isPersonal = (b: Block) => b.areaType === "personal";
+  const workAllDay = allDay.filter((b) => !isPersonal(b));
+  const personalAllDay = allDay.filter(isPersonal);
+  const workTimed = timed.filter((b) => !isPersonal(b));
+  const personalTimed = timed.filter(isPersonal);
+
+  const lanes: { key: string; label: string; blocks: Block[] }[] = [];
+  if (showWork) lanes.push({ key: "work", label: "工作 Work", blocks: workTimed });
+  if (showPersonal) lanes.push({ key: "personal", label: "個人 Personal", blocks: personalTimed });
+
+  function topFor(b: Block) {
+    return timeToMinutes(b.scheduled_start!) - GRID_START_MIN;
+  }
+  function heightFor(b: Block) {
+    return Math.max(SNAP, timeToMinutes(b.scheduled_end!) - timeToMinutes(b.scheduled_start!));
   }
 
   function commit(task: Task, top: number, height: number) {
@@ -102,11 +158,11 @@ export function DayTimeline({ date }: { date: Date }) {
     if (d.mode === "move") {
       let top = snap(d.startTop + dy);
       top = Math.max(0, Math.min(top, GRID_HEIGHT - d.height));
-      setOverridePos({ taskId: d.taskId, top, height: d.height });
+      setOverridePos({ blockId: d.blockId, top, height: d.height });
     } else {
       let height = snap(d.startHeight + dy);
       height = Math.max(SNAP, Math.min(height, GRID_HEIGHT - d.top));
-      setOverridePos({ taskId: d.taskId, top: d.top, height });
+      setOverridePos({ blockId: d.blockId, top: d.top, height });
     }
   }
 
@@ -116,28 +172,30 @@ export function DayTimeline({ date }: { date: Date }) {
     const d = dragRef.current;
     if (d) {
       if (!movedRef.current && d.mode === "move") {
-        openTask(d.taskId);
+        openTask(d.blockId);
       } else if (movedRef.current) {
-        const task = [...workTasks, ...personalTasks].find((t) => t.id === d.taskId);
+        const block = [...workTimed, ...personalTimed].find((b) => b.id === d.blockId);
         const pos = overridePos;
-        if (task && pos) commit(task, pos.top, pos.height);
+        if (block?.realTask && pos) commit(block.realTask, pos.top, pos.height);
       }
     }
     dragRef.current = null;
     setOverridePos(null);
   }
 
-  function startMove(e: React.PointerEvent, task: Task) {
+  function startMove(e: React.PointerEvent, block: Block) {
+    if (!block.realTask) return; // 重複展開出來的那次不能拖
     e.stopPropagation();
     movedRef.current = false;
-    dragRef.current = { mode: "move", taskId: task.id, startY: e.clientY, startTop: topFor(task), height: heightFor(task) };
+    dragRef.current = { mode: "move", blockId: block.id, startY: e.clientY, startTop: topFor(block), height: heightFor(block) };
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", onPointerUp);
   }
-  function startResize(e: React.PointerEvent, task: Task) {
+  function startResize(e: React.PointerEvent, block: Block) {
+    if (!block.realTask) return;
     e.stopPropagation();
     movedRef.current = true; // resize 一律視為有操作，不觸發開面板
-    dragRef.current = { mode: "resize", taskId: task.id, startY: e.clientY, top: topFor(task), startHeight: heightFor(task) };
+    dragRef.current = { mode: "resize", blockId: block.id, startY: e.clientY, top: topFor(block), startHeight: heightFor(block) };
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", onPointerUp);
   }
@@ -169,6 +227,60 @@ export function DayTimeline({ date }: { date: Date }) {
     return <p className="text-sm text-neutral-400">左側篩選都關閉了，沒有東西可以顯示。</p>;
   }
 
+  function renderBlock(b: Block) {
+    const override = overridePos?.blockId === b.id ? overridePos : null;
+    const top = override?.top ?? topFor(b);
+    const height = override?.height ?? heightFor(b);
+
+    return (
+      <div
+        key={b.id}
+        onPointerDown={(e) => startMove(e, b)}
+        onClick={() => {
+          if (b.occurrence) setOccurrenceCompleted.mutate({ ...b.occurrence, completed: !b.occurrence.completed });
+        }}
+        className={`absolute left-1 right-1 overflow-hidden rounded px-2 py-1 text-xs select-none ${
+          b.realTask ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
+        }`}
+        style={{
+          top,
+          height,
+          background: b.color,
+          color: getContrastTextColor(b.color),
+          opacity: b.occurrence?.completed ? 0.5 : 1,
+        }}
+      >
+        <div className="flex items-center gap-1">
+          {b.occurrence && (
+            <svg viewBox="0 0 16 16" className="h-2.5 w-2.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2 8a6 6 0 0 1 10.2-4.2M2 8l1.5-2M2 8l2 1.3M14 8a6 6 0 0 1-10.2 4.2M14 8l-1.5 2M14 8l-2-1.3" />
+            </svg>
+          )}
+          <span className={`truncate font-semibold ${b.occurrence?.completed ? "line-through" : ""}`}>{b.title}</span>
+        </div>
+        <div className="font-mono text-[10px] opacity-85">
+          {b.scheduled_start?.slice(0, 5)}–{b.scheduled_end?.slice(0, 5)}
+        </div>
+
+        {b.realTask && (
+          <div onPointerDown={(e) => startResize(e, b)} className="absolute inset-x-0 bottom-0 h-2 cursor-ns-resize" />
+        )}
+        {b.occurrence && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              cancelOccurrence.mutate(b.occurrence!);
+            }}
+            className="absolute top-0.5 right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-black/15 text-[9px] hover:bg-black/30"
+            title="跳過這一次"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
       {(workAllDay.length > 0 || personalAllDay.length > 0) && (
@@ -176,14 +288,14 @@ export function DayTimeline({ date }: { date: Date }) {
           <div className="px-1.5 py-2 text-neutral-400">全天</div>
           {lanes.map((lane) => (
             <div key={lane.key} className="flex flex-wrap gap-1.5 border-l border-neutral-200 px-2 py-1.5">
-              {(lane.key === "work" ? workAllDay : personalAllDay).map((t) => (
+              {(lane.key === "work" ? workAllDay : personalAllDay).map((b) => (
                 <button
-                  key={t.id}
-                  onClick={() => openTask(t.id)}
+                  key={b.id}
+                  onClick={() => (b.realTask ? openTask(b.id) : setOccurrenceCompleted.mutate({ ...b.occurrence!, completed: !b.occurrence!.completed }))}
                   className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
-                  style={{ background: colorOf(t), color: getContrastTextColor(colorOf(t)) }}
+                  style={{ background: b.color, color: getContrastTextColor(b.color), opacity: b.occurrence?.completed ? 0.5 : 1 }}
                 >
-                  {t.title}
+                  {b.title}
                 </button>
               ))}
             </div>
@@ -224,29 +336,7 @@ export function DayTimeline({ date }: { date: Date }) {
               <div key={m} className="absolute left-0 right-0 border-t border-neutral-100" style={{ top: m - GRID_START_MIN }} />
             ))}
 
-            {lane.tasks.map((t) => {
-              const override = overridePos?.taskId === t.id ? overridePos : null;
-              const top = override?.top ?? topFor(t);
-              const height = override?.height ?? heightFor(t);
-              const color = colorOf(t);
-              return (
-                <div
-                  key={t.id}
-                  onPointerDown={(e) => startMove(e, t)}
-                  className="absolute left-1 right-1 cursor-grab select-none overflow-hidden rounded px-2 py-1 text-xs active:cursor-grabbing"
-                  style={{ top, height, background: color, color: getContrastTextColor(color) }}
-                >
-                  <div className="truncate font-semibold">{t.title}</div>
-                  <div className="font-mono text-[10px] opacity-85">
-                    {t.scheduled_start?.slice(0, 5)}–{t.scheduled_end?.slice(0, 5)}
-                  </div>
-                  <div
-                    onPointerDown={(e) => startResize(e, t)}
-                    className="absolute inset-x-0 bottom-0 h-2 cursor-ns-resize"
-                  />
-                </div>
-              );
-            })}
+            {lane.blocks.map(renderBlock)}
           </div>
         ))}
       </div>

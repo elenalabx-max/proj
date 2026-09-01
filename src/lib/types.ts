@@ -76,6 +76,55 @@ export type Todo = {
   archived_at: string | null;
 };
 
+export type Subtask = {
+  id: string;
+  user_id: string;
+  task_id: string;
+  title: string;
+  position: number;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ReminderLinkedType = "task" | "todo" | "project" | "standalone";
+
+export type Reminder = {
+  id: string;
+  user_id: string;
+  remind_at: string;
+  linked_type: ReminderLinkedType | null;
+  linked_id: string | null;
+  title: string | null;
+  note: string | null;
+  completed_at: string | null;
+  created_at: string;
+};
+
+export type RecurrenceRule = {
+  id: string;
+  user_id: string;
+  rrule_text: string;
+  starts_on: string;
+  ends_on: string | null;
+  created_at: string;
+};
+
+export type RecurrenceInstance = {
+  id: string;
+  user_id: string;
+  recurrence_rule_id: string;
+  task_id: string | null;
+  todo_id: string | null;
+  instance_date: string;
+  is_cancelled: boolean;
+  override_title: string | null;
+  override_scheduled_start: string | null;
+  override_scheduled_end: string | null;
+  completed_at: string | null;
+  created_at: string;
+};
+
 export type UserSettings = {
   user_id: string;
   timezone: string;

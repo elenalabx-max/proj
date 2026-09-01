@@ -7,6 +7,9 @@ import { useAreas } from "@/hooks/use-areas";
 import { useProjects } from "@/hooks/use-projects";
 import { TASK_STATUS_LABEL, type Area, type Project, type Task, type TaskStatus } from "@/lib/types";
 import { Checkbox } from "@/components/ui/checkbox";
+import { SubtaskSection } from "./subtask-section";
+import { ReminderSection } from "./reminder-section";
+import { RepeatSection } from "./repeat-section";
 
 const STATUS_OPTIONS = Object.keys(TASK_STATUS_LABEL) as TaskStatus[];
 
@@ -200,6 +203,10 @@ function TaskPanelBody({
             <p className="text-[11px] text-neutral-400">先選日期，才會出現在 Calendar 上。</p>
           )}
         </div>
+
+        <SubtaskSection task={task} />
+        <ReminderSection task={task} />
+        <RepeatSection task={task} />
 
         <div>
           <label className="mb-1 block text-xs font-medium text-neutral-500">Notes</label>
