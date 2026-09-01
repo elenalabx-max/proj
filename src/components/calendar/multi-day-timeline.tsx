@@ -97,6 +97,9 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
   for (const t of tasks ?? []) {
     if (t.recurrence_rule_id) continue; // 這種改由下面的 occurrences 展開，避免重複顯示
     if (!t.scheduled_date || !isoList.includes(t.scheduled_date)) continue;
+    // 不是全天、但開始/結束時間缺一個的話，這個時間軸畫不出來，先跳過避免整頁壞掉
+    // （Task Detail Panel 現在會自動補滿 1 小時，但舊資料或還沒填完的仍可能是這樣）。
+    if (!t.is_all_day && (!t.scheduled_start || !t.scheduled_end)) continue;
     const areaType = areaTypeOf(t.area_id);
     if (!isVisible(areaType, t.project_id)) continue;
     blocks.push({
@@ -115,6 +118,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
 
   for (const o of occurrences ?? []) {
     if (!isoList.includes(o.date)) continue;
+    if (!o.is_all_day && (!o.scheduled_start || !o.scheduled_end)) continue;
     const areaType = areaTypeOf(o.masterTask.area_id);
     if (!isVisible(areaType, o.masterTask.project_id)) continue;
     blocks.push({
