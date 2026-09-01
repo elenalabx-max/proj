@@ -4,7 +4,7 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 import { useTasksInRange } from "@/hooks/use-calendar-tasks";
-import { useTodosForDate, useCompleteTodo } from "@/hooks/use-todos";
+import { useTodosForDate, useCompleteTodo, useCreateTodo } from "@/hooks/use-todos";
 import { useReviewTasks } from "@/hooks/use-tasks";
 import { useRemindersOnDate } from "@/hooks/use-reminders";
 import { useTaskPanelStore } from "@/stores/task-panel";
@@ -66,8 +66,18 @@ export default function TodayPage() {
   const { data: reminders } = useRemindersOnDate(iso);
   const openTask = useTaskPanelStore((s) => s.open);
   const completeTodo = useCompleteTodo();
+  const createTodo = useCreateTodo();
 
   const [view, setView] = useState<"timeline" | "quadrant">("timeline");
+  const [newTodoTitle, setNewTodoTitle] = useState("");
+
+  function handleAddTodayTodo(e: React.FormEvent) {
+    e.preventDefault();
+    const title = newTodoTitle.trim();
+    if (!title) return;
+    createTodo.mutate({ title, date: iso });
+    setNewTodoTitle("");
+  }
 
   const scheduled = (tasks ?? [])
     .filter((t) => !t.is_all_day && t.scheduled_start && t.status !== "completed")
@@ -101,6 +111,14 @@ export default function TodayPage() {
               <span className="truncate">{t.title}</span>
             </label>
           ))}
+          <form onSubmit={handleAddTodayTodo}>
+            <input
+              value={newTodoTitle}
+              onChange={(e) => setNewTodoTitle(e.target.value)}
+              placeholder="+ 新增今天的 Todo…"
+              className="w-full rounded border-none bg-transparent text-xs text-neutral-500 outline-none placeholder:text-neutral-300"
+            />
+          </form>
         </SummaryCard>
 
         <SummaryCard icon={<ReviewGlyph />} title="待我確認">
