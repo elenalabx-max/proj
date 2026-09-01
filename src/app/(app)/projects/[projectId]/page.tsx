@@ -5,6 +5,7 @@ import { useProject, useUpdateProject } from "@/hooks/use-projects";
 import { useCreateTask, useProjectTasks } from "@/hooks/use-tasks";
 import { useTaskPanelStore } from "@/stores/task-panel";
 import { ColorPicker } from "@/components/ui/color-picker";
+import { ProjectStatsPanel } from "@/components/projects/project-stats-panel";
 import { getContrastTextColor } from "@/lib/colors";
 import { PROJECT_STATUS_LABEL, TASK_STATUS_LABEL, type ProjectStatus } from "@/lib/types";
 
@@ -119,6 +120,8 @@ export default function ProjectDetailPage({
           />
         </form>
       </section>
+
+      <ProjectStatsPanel projectId={project.id} />
     </div>
   );
 }
