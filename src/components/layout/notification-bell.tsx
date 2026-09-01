@@ -60,9 +60,7 @@ export function NotificationBell() {
                       <div className="font-mono text-[11px] text-neutral-400">{fmtTime(r.remind_at)}</div>
                     </button>
                     <button
-                      onClick={() =>
-                        toggleDone.mutate({ id: r.id, done: true, linkedType: r.linked_type!, linkedId: r.linked_id! })
-                      }
+                      onClick={() => toggleDone.mutate({ id: r.id, done: true })}
                       className="ml-2 shrink-0 text-xs text-neutral-400 hover:text-neutral-800"
                     >
                       完成

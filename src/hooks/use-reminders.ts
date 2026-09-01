@@ -5,26 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import type { Reminder, ReminderLinkedType } from "@/lib/types";
 import { useUser } from "./use-user";
 
-export function useReminders(linkedType: ReminderLinkedType, linkedId: string | null) {
-  return useQuery({
-    queryKey: ["reminders", linkedType, linkedId],
-    queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("reminders")
-        .select("*")
-        .eq("linked_type", linkedType)
-        .eq("linked_id", linkedId)
-        .order("remind_at", { ascending: true });
-      if (error) throw error;
-      return data as Reminder[];
-    },
-    enabled: !!linkedId,
-  });
-}
-
-function invalidate(queryClient: ReturnType<typeof useQueryClient>, linkedType: ReminderLinkedType, linkedId: string) {
-  queryClient.invalidateQueries({ queryKey: ["reminders", linkedType, linkedId] });
+function invalidateReminders(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: ["reminders"] });
 }
 
 export function useRemindersOnDate(date: string) {
@@ -83,7 +65,7 @@ export function useCreateReminder() {
       title,
     }: {
       linkedType: ReminderLinkedType;
-      linkedId: string;
+      linkedId?: string | null;
       remindAt: string;
       note?: string;
       title?: string;
@@ -94,7 +76,7 @@ export function useCreateReminder() {
         .insert({
           user_id: user?.id,
           linked_type: linkedType,
-          linked_id: linkedId,
+          linked_id: linkedId ?? null,
           remind_at: remindAt,
           note: note || null,
           title: title || null,
@@ -104,7 +86,7 @@ export function useCreateReminder() {
       if (error) throw error;
       return data as Reminder;
     },
-    onSuccess: (reminder) => invalidate(queryClient, reminder.linked_type!, reminder.linked_id!),
+    onSuccess: () => invalidateReminders(queryClient),
   });
 }
 
@@ -112,7 +94,7 @@ export function useToggleReminderDone() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, done }: { id: string; done: boolean; linkedType: ReminderLinkedType; linkedId: string }) => {
+    mutationFn: async ({ id, done }: { id: string; done: boolean }) => {
       const supabase = createClient();
       const { error } = await supabase
         .from("reminders")
@@ -120,7 +102,7 @@ export function useToggleReminderDone() {
         .eq("id", id);
       if (error) throw error;
     },
-    onSuccess: (_data, vars) => invalidate(queryClient, vars.linkedType, vars.linkedId),
+    onSuccess: () => invalidateReminders(queryClient),
   });
 }
 
@@ -128,11 +110,11 @@ export function useDeleteReminder() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id }: { id: string; linkedType: ReminderLinkedType; linkedId: string }) => {
+    mutationFn: async (id: string) => {
       const supabase = createClient();
       const { error } = await supabase.from("reminders").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: (_data, vars) => invalidate(queryClient, vars.linkedType, vars.linkedId),
+    onSuccess: () => invalidateReminders(queryClient),
   });
 }

@@ -322,7 +322,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
           {dateGroups.map((g) => (
             <div key={g.iso} className="flex flex-1 border-l border-neutral-200">
               {g.columns.map((col) => (
-                <div key={col.key} className="flex flex-1 flex-wrap gap-1.5 border-l border-neutral-100 px-2 py-1.5 first:border-l-0">
+                <div key={col.key} className="flex flex-1 flex-col gap-1 border-l border-neutral-100 px-1.5 py-1.5 first:border-l-0">
                   {col.blocks
                     .filter((b) => b.is_all_day)
                     .map((b) => (
@@ -331,7 +331,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
                         onClick={() =>
                           b.realTask ? openTask(b.id) : setOccurrenceCompleted.mutate({ ...b.occurrence!, completed: !b.occurrence!.completed })
                         }
-                        className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
+                        className="block w-full truncate rounded px-2 py-1 text-left text-[11px] font-semibold"
                         style={{ background: b.color, color: getContrastTextColor(b.color), opacity: b.occurrence?.completed ? 0.5 : 1 }}
                       >
                         {b.title}

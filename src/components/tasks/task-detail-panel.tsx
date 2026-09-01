@@ -11,7 +11,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { AssigneeSection } from "./assignee-section";
 import { TimeLogSection } from "./time-log-section";
 import { SubtaskSection } from "./subtask-section";
-import { ReminderSection } from "./reminder-section";
 import { RepeatSection } from "./repeat-section";
 
 const STATUS_OPTIONS = Object.keys(TASK_STATUS_LABEL) as TaskStatus[];
@@ -62,9 +61,24 @@ function TaskPanelBody({
     <div className="flex h-full w-full max-w-sm flex-col overflow-y-auto border-l border-neutral-200 bg-white p-5">
       <div className="mb-4 flex items-center justify-between">
         <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Task</span>
-        <button onClick={close} className="text-sm text-neutral-400 hover:text-neutral-700">
-          關閉
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              archiveTask.mutate(task.id);
+              close();
+            }}
+            title="會封存而不是永久刪除，可從 Settings → 封存 復原"
+            className="flex items-center gap-1 text-xs font-medium text-red-500 hover:underline"
+          >
+            <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 4.5h10M6.5 4.5V3a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1.5M4 4.5 4.6 13a1 1 0 0 0 1 .9h4.8a1 1 0 0 0 1-.9l.6-8.5" />
+            </svg>
+            刪除
+          </button>
+          <button onClick={close} className="text-sm text-neutral-400 hover:text-neutral-700">
+            關閉
+          </button>
+        </div>
       </div>
 
       <input
@@ -231,7 +245,6 @@ function TaskPanelBody({
 
         <AssigneeSection task={task} />
         <SubtaskSection task={task} />
-        <ReminderSection task={task} />
         <RepeatSection task={task} />
 
         <div>
@@ -246,24 +259,6 @@ function TaskPanelBody({
             rows={4}
             className="w-full rounded-md border border-neutral-300 px-2 py-1.5"
           />
-        </div>
-
-        <div>
-          <button
-            onClick={() => {
-              archiveTask.mutate(task.id);
-              close();
-            }}
-            className="flex items-center gap-1.5 text-xs font-medium text-red-500 hover:underline"
-          >
-            <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 4.5h10M6.5 4.5V3a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1.5M4 4.5 4.6 13a1 1 0 0 0 1 .9h4.8a1 1 0 0 0 1-.9l.6-8.5" />
-            </svg>
-            刪除 Task
-          </button>
-          <p className="mt-1 text-[11px] text-neutral-400">
-            會封存而不是永久刪除，之後可以從 Archive 復原（Phase 9 才會做復原介面）。
-          </p>
         </div>
       </div>
     </div>
