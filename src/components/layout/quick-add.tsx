@@ -3,18 +3,23 @@
 import { useState } from "react";
 import { useCreateTodo } from "@/hooks/use-todos";
 import { useCreateReminder } from "@/hooks/use-reminders";
+import { useProjects } from "@/hooks/use-projects";
 
 type Mode = "todo" | "reminder";
 
 // 全站快速新增：只要標題，Enter 就送進 Inbox（見規劃書第 38 節）。
 // 預設建立 Todo；切到「提醒」模式則建立獨立提醒（不用先掛在某個 Task 上）——
-// 提醒一定要有時間，所以標題送出後會多一步選時間才真的存檔。
+// 提醒一定要有時間，所以標題送出後會多一步選時間（可選加 Project）才真的存檔。
+// 有掛 Project 的提醒才會畫在 Calendar 上（沒有 Project 就不知道要畫在 Work 還 Personal 欄）。
 export function QuickAdd() {
   const [mode, setMode] = useState<Mode>("todo");
   const [value, setValue] = useState("");
   const [pendingTitle, setPendingTitle] = useState<string | null>(null);
+  const [remindAt, setRemindAt] = useState("");
+  const [projectId, setProjectId] = useState("");
   const createTodo = useCreateTodo();
   const createReminder = useCreateReminder();
+  const { data: projects } = useProjects();
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -25,35 +30,56 @@ export function QuickAdd() {
       createTodo.mutate(title);
       setValue("");
     } else {
-      setPendingTitle(title); // 等使用者選時間才真的建立
+      setPendingTitle(title); // 等使用者選時間（可選 Project）才真的建立
     }
   }
 
-  function handlePickTime(e: React.ChangeEvent<HTMLInputElement>) {
-    if (!e.target.value || !pendingTitle) return;
+  function handleCreateReminder(e: React.FormEvent) {
+    e.preventDefault();
+    if (!remindAt || !pendingTitle) return;
     createReminder.mutate({
-      linkedType: "standalone",
-      remindAt: new Date(e.target.value).toISOString(),
+      linkedType: projectId ? "project" : "standalone",
+      linkedId: projectId || undefined,
+      remindAt: new Date(remindAt).toISOString(),
       title: pendingTitle,
     });
     setPendingTitle(null);
     setValue("");
+    setRemindAt("");
+    setProjectId("");
   }
 
   if (pendingTitle) {
     return (
-      <div className="flex flex-1 max-w-md items-center gap-2 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm">
-        <span className="truncate text-neutral-600">「{pendingTitle}」提醒時間：</span>
+      <form onSubmit={handleCreateReminder} className="flex flex-1 max-w-md items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm">
+        <span className="shrink-0 truncate text-neutral-600">「{pendingTitle}」</span>
         <input
           type="datetime-local"
+          required
           autoFocus
-          onChange={handlePickTime}
-          className="text-xs outline-none"
+          value={remindAt}
+          onChange={(e) => setRemindAt(e.target.value)}
+          className="shrink-0 text-xs outline-none"
         />
-        <button type="button" onClick={() => setPendingTitle(null)} className="ml-auto shrink-0 text-xs text-neutral-400">
+        <select
+          value={projectId}
+          onChange={(e) => setProjectId(e.target.value)}
+          className="min-w-0 flex-1 text-xs text-neutral-500 outline-none"
+        >
+          <option value="">不掛 Project（不會顯示在 Calendar）</option>
+          {projects?.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+        <button type="submit" className="shrink-0 rounded bg-neutral-900 px-2 py-1 text-xs font-medium text-white">
+          新增
+        </button>
+        <button type="button" onClick={() => setPendingTitle(null)} className="shrink-0 text-xs text-neutral-400">
           取消
         </button>
-      </div>
+      </form>
     );
   }
 

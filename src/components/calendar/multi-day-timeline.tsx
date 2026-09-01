@@ -9,6 +9,7 @@ import { useUserSettings } from "@/hooks/use-user-settings";
 import { useCalendarFilterStore } from "@/stores/calendar-filter";
 import { useTaskPanelStore } from "@/stores/task-panel";
 import { useCancelOccurrence, useRecurringOccurrences, useSetOccurrenceCompleted } from "@/hooks/use-recurrence";
+import { useProjectRemindersInRange, useToggleReminderDone } from "@/hooks/use-reminders";
 import { getContrastTextColor, resolveTaskColor } from "@/lib/colors";
 import { minutesToTime, timeToMinutes, toISODate, WEEKDAY_LABELS_MON_FIRST } from "@/lib/date";
 import { layoutOverlaps, type OverlapSlot } from "@/lib/overlap-layout";
@@ -27,6 +28,16 @@ function dateLabel(d: Date) {
   return `${d.getMonth() + 1}/${d.getDate()} (${WEEKDAY_LABELS_MON_FIRST[(d.getDay() + 6) % 7]})`;
 }
 
+// 逾期但還沒完成／還沒被交辦出去的——不會自動跑去遺忘箱（那是使用者自己決定的事，
+// 見規劃書第 13 節），只在畫面上加個警示 icon 提醒「這個過期了還沒處理」。
+function isOverdue(dateIso: string, endTime: string | null, isAllDay: boolean, status: string): boolean {
+  if (status === "completed" || status === "forgotten" || status === "waiting") return false;
+  const now = new Date();
+  if (isAllDay) return dateIso < toISODate(now);
+  if (!endTime) return false;
+  return new Date(`${dateIso}T${endTime}`) < now;
+}
+
 type Block = {
   id: string;
   title: string;
@@ -41,7 +52,16 @@ type Block = {
   occurrence: { ruleId: string; taskId: string; date: string; completed: boolean } | null;
 };
 
-type Column = { key: string; date: string; areaType: "work" | "personal"; label: string; blocks: Block[] };
+type ReminderMarker = {
+  id: string;
+  title: string;
+  time: string;
+  top: number;
+  color: string;
+  completed: boolean;
+};
+
+type Column = { key: string; date: string; areaType: "work" | "personal"; label: string; blocks: Block[]; reminders: ReminderMarker[] };
 
 type DragState =
   | { mode: "move"; blockId: string; startY: number; startTop: number; height: number }
@@ -57,6 +77,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
 
   const { data: tasks } = useTasksInRange(rangeStart, rangeEnd);
   const { data: occurrences } = useRecurringOccurrences(rangeStart, rangeEnd);
+  const { data: projectReminders } = useProjectRemindersInRange(rangeStart, rangeEnd);
   const { data: areas } = useAreas();
   const { data: projects } = useProjects();
   const { data: settings } = useUserSettings();
@@ -65,6 +86,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
   const openTask = useTaskPanelStore((s) => s.open);
   const setOccurrenceCompleted = useSetOccurrenceCompleted();
   const cancelOccurrence = useCancelOccurrence();
+  const toggleReminderDone = useToggleReminderDone();
 
   const showPersonal = useCalendarFilterStore((s) => s.showPersonal);
   const showWork = useCalendarFilterStore((s) => s.showWork);
@@ -142,14 +164,58 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
 
   const isPersonal = (b: Block) => b.areaType === "personal";
 
+  // 有掛 Project 的提醒，換算成使用者本地時區的日期/分鐘數，畫成小標記（不是滿版色塊）。
+  const reminderMarkers: (ReminderMarker & { date: string; areaType: "work" | "personal" })[] = [];
+  for (const r of projectReminders ?? []) {
+    if (!r.linked_id) continue;
+    const project = projects?.find((p) => p.id === r.linked_id);
+    if (!project) continue;
+    const areaType = areaTypeOf(project.area_id);
+    if (areaType !== "work" && areaType !== "personal") continue;
+    if (!isVisible(areaType, project.id)) continue;
+
+    const d = new Date(r.remind_at);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const localIso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    if (!isoList.includes(localIso)) continue;
+    const minutesOfDay = d.getHours() * 60 + d.getMinutes();
+    if (minutesOfDay < GRID_START_MIN || minutesOfDay > GRID_END_MIN) continue;
+
+    reminderMarkers.push({
+      id: r.id,
+      title: r.title ?? "提醒",
+      time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+      top: minutesOfDay - GRID_START_MIN,
+      color: project.color,
+      completed: !!r.completed_at,
+      date: localIso,
+      areaType,
+    });
+  }
+
   const dateGroups = isoList.map((iso, i) => {
     const dayBlocks = blocks.filter((b) => b.date === iso);
+    const dayReminders = reminderMarkers.filter((r) => r.date === iso);
     const columns: Column[] = [];
     if (showWork) {
-      columns.push({ key: `${iso}:work`, date: iso, areaType: "work", label: "工作", blocks: dayBlocks.filter((b) => !isPersonal(b)) });
+      columns.push({
+        key: `${iso}:work`,
+        date: iso,
+        areaType: "work",
+        label: "工作",
+        blocks: dayBlocks.filter((b) => !isPersonal(b)),
+        reminders: dayReminders.filter((r) => r.areaType === "work"),
+      });
     }
     if (showPersonal) {
-      columns.push({ key: `${iso}:personal`, date: iso, areaType: "personal", label: "個人", blocks: dayBlocks.filter(isPersonal) });
+      columns.push({
+        key: `${iso}:personal`,
+        date: iso,
+        areaType: "personal",
+        label: "個人",
+        blocks: dayBlocks.filter(isPersonal),
+        reminders: dayReminders.filter((r) => r.areaType === "personal"),
+      });
     }
     return { iso, date: dates[i], columns };
   });
@@ -261,8 +327,10 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
     const width = `calc(${100 / slot.cols}% - ${slot.col === 0 ? 4 + gapPx : gapPx * 2}px)`;
 
     // 完成的（不管是 Task 本身還是重複的某一次）維持在原本的時間格位置，
-    // 只是變淡灰色＋刪除線，不整個消失——這樣才看得出「這時段本來排了什麼」。
+    // 只是變淡灰色，不整個消失——這樣才看得出「這時段本來排了什麼」。
     const isCompleted = b.realTask ? b.realTask.status === "completed" : !!b.occurrence?.completed;
+    const overdue =
+      !isCompleted && b.realTask ? isOverdue(b.date, b.scheduled_end, false, b.realTask.status) : false;
     const bg = isCompleted ? "#e5e7eb" : b.color;
     const fg = isCompleted ? "#6b7280" : getContrastTextColor(b.color);
 
@@ -286,13 +354,21 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
           zIndex: overridePos?.blockId === b.id ? 10 : slot.col + 1,
         }}
       >
+        {overdue && (
+          <span
+            title="已經過期還沒完成"
+            className="absolute top-1 right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white/90 text-[9px] leading-none font-bold text-amber-600"
+          >
+            !
+          </span>
+        )}
         <div className="flex items-center gap-1">
           {b.occurrence && (
             <svg viewBox="0 0 16 16" className="h-2.5 w-2.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
               <path d="M2 8a6 6 0 0 1 10.2-4.2M2 8l1.5-2M2 8l2 1.3M14 8a6 6 0 0 1-10.2 4.2M14 8l-1.5 2M14 8l-2-1.3" />
             </svg>
           )}
-          <span className={`truncate font-semibold ${isCompleted ? "line-through" : ""}`}>{b.title}</span>
+          <span className="truncate font-semibold">{b.title}</span>
         </div>
         <div className="font-mono text-[10px] opacity-85">
           {b.scheduled_start?.slice(0, 5)}–{b.scheduled_end?.slice(0, 5)}
@@ -332,18 +408,28 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
                     .filter((b) => b.is_all_day)
                     .map((b) => {
                       const isCompleted = b.realTask ? b.realTask.status === "completed" : !!b.occurrence?.completed;
+                      const overdue =
+                        !isCompleted && b.realTask ? isOverdue(b.date, null, true, b.realTask.status) : false;
                       return (
                         <button
                           key={b.id}
                           onClick={() =>
                             b.realTask ? openTask(b.id) : setOccurrenceCompleted.mutate({ ...b.occurrence!, completed: !b.occurrence!.completed })
                           }
-                          className={`block w-full truncate rounded px-2 py-1 text-left text-[11px] font-semibold ${isCompleted ? "line-through" : ""}`}
+                          className="relative block w-full truncate rounded px-2 py-1 text-left text-[11px] font-semibold"
                           style={{
                             background: isCompleted ? "#e5e7eb" : b.color,
                             color: isCompleted ? "#6b7280" : getContrastTextColor(b.color),
                           }}
                         >
+                          {overdue && (
+                            <span
+                              title="已經過期還沒完成"
+                              className="absolute top-1 right-1 flex h-3 w-3 items-center justify-center rounded-full bg-white/90 text-[8px] leading-none font-bold text-amber-600"
+                            >
+                              !
+                            </span>
+                          )}
                           {b.title}
                         </button>
                       );
@@ -406,6 +492,23 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
                   const layout = layoutOverlaps(timedBlocks.map((b) => ({ id: b.id, top: topFor(b), height: heightFor(b) })));
                   return timedBlocks.map((b) => renderBlock(b, layout.get(b.id) ?? { col: 0, cols: 1 }));
                 })()}
+                {col.reminders.map((r) => (
+                  <button
+                    key={r.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleReminderDone.mutate({ id: r.id, done: !r.completed });
+                    }}
+                    title={`${r.time} ${r.title}${r.completed ? "（已完成）" : ""}`}
+                    className="absolute right-0.5 z-20 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-full border border-white shadow-sm"
+                    style={{ top: r.top, background: r.completed ? "#9ca3af" : r.color }}
+                  >
+                    <svg viewBox="0 0 16 16" className="h-2.5 w-2.5 text-white" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M8 2.5a3.2 3.2 0 0 0-3.2 3.2c0 3.7-1.5 4.8-1.5 4.8h9.4s-1.5-1.1-1.5-4.8A3.2 3.2 0 0 0 8 2.5Z" />
+                      <path d="M6.6 12.7a1.4 1.4 0 0 0 2.8 0" />
+                    </svg>
+                  </button>
+                ))}
               </div>
             ))}
           </div>

@@ -29,6 +29,28 @@ export function useRemindersOnDate(date: string) {
   });
 }
 
+// 有掛 Project 的提醒才要畫在 Calendar 上（沒有 Project 就不知道放哪一欄）。
+export function useProjectRemindersInRange(start: string, end: string) {
+  const { user } = useUser();
+
+  return useQuery({
+    queryKey: ["reminders", "project-range", start, end, user?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("reminders")
+        .select("*")
+        .eq("linked_type", "project")
+        .gte("remind_at", `${start}T00:00:00`)
+        .lt("remind_at", `${end}T23:59:59.999`)
+        .order("remind_at", { ascending: true });
+      if (error) throw error;
+      return data as Reminder[];
+    },
+    enabled: !!user,
+  });
+}
+
 // 已經到時間、還沒完成的提醒——通知鈴鐺用。沒有背景 job 推播，查詢當下直接比對時間就好。
 export function useDueReminders() {
   const { user } = useUser();
