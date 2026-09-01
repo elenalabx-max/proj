@@ -492,7 +492,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
                   const layout = layoutOverlaps(timedBlocks.map((b) => ({ id: b.id, top: topFor(b), height: heightFor(b) })));
                   return timedBlocks.map((b) => renderBlock(b, layout.get(b.id) ?? { col: 0, cols: 1 }));
                 })()}
-                {col.reminders.map((r) => (
+                {col.reminders.map((r, i) => (
                   <button
                     key={r.id}
                     onClick={(e) => {
@@ -500,13 +500,21 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
                       toggleReminderDone.mutate({ id: r.id, done: !r.completed });
                     }}
                     title={`${r.time} ${r.title}${r.completed ? "（已完成）" : ""}`}
-                    className="absolute right-0.5 z-20 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-full border border-white shadow-sm"
-                    style={{ top: r.top, background: r.completed ? "#9ca3af" : r.color }}
+                    className="absolute left-0.5 right-0.5 z-20 flex items-center gap-1 truncate rounded border px-1.5 py-0.5 text-[10px] font-semibold shadow-sm"
+                    style={{
+                      top: r.top - 9 + i * 15,
+                      background: r.completed ? "#e5e7eb" : "white",
+                      borderColor: r.completed ? "#d1d5db" : r.color,
+                      color: r.completed ? "#9ca3af" : r.color,
+                      textDecoration: r.completed ? "line-through" : "none",
+                    }}
                   >
-                    <svg viewBox="0 0 16 16" className="h-2.5 w-2.5 text-white" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <svg viewBox="0 0 16 16" className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M8 2.5a3.2 3.2 0 0 0-3.2 3.2c0 3.7-1.5 4.8-1.5 4.8h9.4s-1.5-1.1-1.5-4.8A3.2 3.2 0 0 0 8 2.5Z" />
                       <path d="M6.6 12.7a1.4 1.4 0 0 0 2.8 0" />
                     </svg>
+                    <span className="font-mono">{r.time}</span>
+                    <span className="truncate">{r.title}</span>
                   </button>
                 ))}
               </div>
