@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { signOut } from "./actions";
 import { Sidebar } from "@/components/layout/sidebar";
 import { QuickAdd } from "@/components/layout/quick-add";
+import { ActiveTimerBadge } from "@/components/layout/active-timer-badge";
 import { TaskDetailPanel } from "@/components/tasks/task-detail-panel";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -16,6 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center gap-4 border-b border-neutral-200 bg-white px-6 py-3">
           <QuickAdd />
+          <ActiveTimerBadge />
           <div className="ml-auto flex items-center gap-4">
             <span className="text-xs text-neutral-500">{user?.email}</span>
             <form action={signOut}>

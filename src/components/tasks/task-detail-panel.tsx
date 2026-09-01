@@ -8,6 +8,7 @@ import { useProjects } from "@/hooks/use-projects";
 import { TASK_STATUS_LABEL, type Area, type Project, type Task, type TaskStatus } from "@/lib/types";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AssigneeSection } from "./assignee-section";
+import { TimeLogSection } from "./time-log-section";
 import { SubtaskSection } from "./subtask-section";
 import { ReminderSection } from "./reminder-section";
 import { RepeatSection } from "./repeat-section";
@@ -144,15 +145,34 @@ function TaskPanelBody({
           />
         </div>
 
-        <div>
-          <label className="mb-1 block text-xs font-medium text-neutral-500">Due Date</label>
-          <input
-            type="date"
-            value={task.due_date ?? ""}
-            onChange={(e) => updateTask.mutate({ id: task.id, patch: { due_date: e.target.value || null } })}
-            className="w-full rounded-md border border-neutral-300 px-2 py-1.5"
-          />
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <label className="mb-1 block text-xs font-medium text-neutral-500">Due Date</label>
+            <input
+              type="date"
+              value={task.due_date ?? ""}
+              onChange={(e) => updateTask.mutate({ id: task.id, patch: { due_date: e.target.value || null } })}
+              className="w-full rounded-md border border-neutral-300 px-2 py-1.5"
+            />
+          </div>
+          <div className="w-28">
+            <label className="mb-1 block text-xs font-medium text-neutral-500">預計(分)</label>
+            <input
+              type="number"
+              min={0}
+              value={task.estimated_minutes ?? ""}
+              onChange={(e) =>
+                updateTask.mutate({
+                  id: task.id,
+                  patch: { estimated_minutes: e.target.value ? Number(e.target.value) : null },
+                })
+              }
+              className="w-full rounded-md border border-neutral-300 px-2 py-1.5"
+            />
+          </div>
         </div>
+
+        <TimeLogSection task={task} />
 
         <div className="space-y-2 rounded-md border border-neutral-200 p-3">
           <div className="flex items-center justify-between">
