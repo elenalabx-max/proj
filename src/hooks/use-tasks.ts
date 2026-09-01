@@ -69,6 +69,10 @@ export type NewTask = {
   important?: boolean;
   urgent?: boolean;
   due_date?: string | null;
+  scheduled_date?: string | null;
+  scheduled_start?: string | null;
+  scheduled_end?: string | null;
+  is_all_day?: boolean;
 };
 
 function invalidateTaskQueries(queryClient: ReturnType<typeof useQueryClient>, task?: Task) {

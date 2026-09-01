@@ -13,7 +13,7 @@ export default function ColorSettingsPage() {
   }
 
   return (
-    <div className="max-w-lg space-y-8">
+    <div className="mx-auto max-w-lg space-y-8">
       <div>
         <h1 className="text-xl font-semibold text-neutral-900">顏色設定</h1>
         <p className="mt-1 text-sm text-neutral-500">

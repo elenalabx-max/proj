@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useTasksInRange } from "@/hooks/use-calendar-tasks";
-import { useUpdateTask } from "@/hooks/use-tasks";
+import { useCreateTask, useUpdateTask } from "@/hooks/use-tasks";
 import { useAreas } from "@/hooks/use-areas";
 import { useProjects } from "@/hooks/use-projects";
 import { useUserSettings } from "@/hooks/use-user-settings";
@@ -32,6 +32,7 @@ export function DayTimeline({ date }: { date: Date }) {
   const { data: projects } = useProjects();
   const { data: settings } = useUserSettings();
   const updateTask = useUpdateTask();
+  const createTask = useCreateTask();
   const openTask = useTaskPanelStore((s) => s.open);
 
   const showPersonal = useCalendarFilterStore((s) => s.showPersonal);
@@ -141,6 +142,26 @@ export function DayTimeline({ date }: { date: Date }) {
     window.addEventListener("pointerup", onPointerUp);
   }
 
+  function createAt(e: React.MouseEvent<HTMLDivElement>, laneKey: "work" | "personal") {
+    if (e.target !== e.currentTarget) return; // 點到現有色塊，不要在下面建立新任務
+    const rect = e.currentTarget.getBoundingClientRect();
+    const offsetY = e.clientY - rect.top;
+    const top = Math.max(0, Math.min(snap(offsetY), GRID_HEIGHT - 60));
+    const startMin = GRID_START_MIN + top;
+    const areaId = areas?.find((a) => a.type === laneKey)?.id ?? null;
+
+    createTask
+      .mutateAsync({
+        title: "新任務",
+        area_id: areaId,
+        scheduled_date: iso,
+        scheduled_start: minutesToTime(startMin),
+        scheduled_end: minutesToTime(startMin + 60),
+      })
+      .then((task) => openTask(task.id))
+      .catch(() => {});
+  }
+
   const hourMarks: number[] = [];
   for (let m = GRID_START_MIN; m <= GRID_END_MIN; m += 60) hourMarks.push(m);
 
@@ -193,7 +214,12 @@ export function DayTimeline({ date }: { date: Date }) {
         </div>
 
         {lanes.map((lane) => (
-          <div key={lane.key} className="relative border-l border-neutral-200">
+          <div
+            key={lane.key}
+            onClick={(e) => createAt(e, lane.key as "work" | "personal")}
+            className="relative cursor-cell border-l border-neutral-200"
+            title="點空白處新增任務"
+          >
             {hourMarks.map((m) => (
               <div key={m} className="absolute left-0 right-0 border-t border-neutral-100" style={{ top: m - GRID_START_MIN }} />
             ))}

@@ -5,6 +5,7 @@ import { useAreas } from "@/hooks/use-areas";
 import { useProjects } from "@/hooks/use-projects";
 import { useInboxTodos, useUpdateTodo, useConvertTodoToTask } from "@/hooks/use-todos";
 import { useInboxTasks, useUpdateTask, useBulkUpdateTasks } from "@/hooks/use-tasks";
+import { useTaskPanelStore } from "@/stores/task-panel";
 import type { Task, Todo } from "@/lib/types";
 
 type Row =
@@ -113,7 +114,7 @@ export default function InboxPage() {
   const loading = todosLoading || tasksLoading;
 
   return (
-    <div className="max-w-2xl space-y-4">
+    <div className="mx-auto max-w-2xl space-y-4">
       <div>
         <h1 className="text-xl font-semibold text-neutral-900">Inbox</h1>
         <p className="mt-1 text-sm text-neutral-500">想到事情，但還沒決定怎麼安排。</p>
@@ -213,12 +214,54 @@ function InboxRow({
   projects: { id: string; name: string }[];
 }) {
   const [mode, setMode] = useState<"date" | "project" | "forget" | null>(null);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(row.title);
+
+  const openTask = useTaskPanelStore((s) => s.open);
+  const updateTodo = useUpdateTodo();
+
+  function commitTitle() {
+    setEditingTitle(false);
+    const next = titleDraft.trim();
+    if (row.kind === "todo" && next && next !== row.title) {
+      updateTodo.mutate({ id: row.id, patch: { title: next } });
+    } else {
+      setTitleDraft(row.title);
+    }
+  }
 
   return (
     <div className="flex flex-col gap-1.5 px-4 py-2.5">
       <div className="flex items-center gap-3">
         <input type="checkbox" checked={checked} onChange={onToggle} />
-        <span className="flex-1 text-sm text-neutral-900">{row.title}</span>
+
+        {row.kind === "task" ? (
+          <button
+            onClick={() => openTask(row.id)}
+            className="flex-1 truncate text-left text-sm text-neutral-900 hover:underline"
+            title="點擊開啟 Task 詳細內容"
+          >
+            {row.title}
+          </button>
+        ) : editingTitle ? (
+          <input
+            autoFocus
+            value={titleDraft}
+            onChange={(e) => setTitleDraft(e.target.value)}
+            onBlur={commitTitle}
+            onKeyDown={(e) => e.key === "Enter" && commitTitle()}
+            className="flex-1 rounded border border-neutral-300 px-1.5 py-0.5 text-sm outline-none"
+          />
+        ) : (
+          <button
+            onClick={() => setEditingTitle(true)}
+            className="flex-1 truncate text-left text-sm text-neutral-900 hover:underline"
+            title="點擊重新命名"
+          >
+            {row.title}
+          </button>
+        )}
+
         <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-500">
           {row.kind === "todo" ? "Todo" : "Task"}
         </span>

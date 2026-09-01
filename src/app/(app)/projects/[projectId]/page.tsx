@@ -41,7 +41,7 @@ export default function ProjectDetailPage({
   }
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <div className="flex items-center gap-2">
           <button
