@@ -65,7 +65,7 @@ export function QuickAdd() {
             key={m}
             type="button"
             onClick={() => setMode(m)}
-            title={m === "todo" ? "收集箱" : "提醒"}
+            title={m === "todo" ? "新增 Todo（進收集箱）" : "新增提醒"}
             className={`rounded px-1.5 py-1 text-xs ${mode === m ? "bg-neutral-900 text-white" : "text-neutral-400 hover:text-neutral-700"}`}
           >
             {m === "todo" ? (
@@ -85,7 +85,7 @@ export function QuickAdd() {
       <input
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        placeholder={mode === "todo" ? "+ 新增到收集箱…按 Enter 儲存" : "+ 新增提醒…按 Enter 選時間"}
+        placeholder={mode === "todo" ? "+ 新增 Todo…按 Enter 儲存" : "+ 新增提醒…按 Enter 選時間"}
         className="w-full rounded-md border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-sm outline-none placeholder:text-neutral-400 focus:border-neutral-400 focus:bg-white"
       />
     </form>
