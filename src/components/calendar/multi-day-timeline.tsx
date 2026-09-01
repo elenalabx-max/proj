@@ -8,11 +8,14 @@ import { useProjects } from "@/hooks/use-projects";
 import { useUserSettings } from "@/hooks/use-user-settings";
 import { useCalendarFilterStore } from "@/stores/calendar-filter";
 import { useTaskPanelStore } from "@/stores/task-panel";
+import { useReminderPanelStore } from "@/stores/reminder-panel";
 import { useCancelOccurrence, useRecurringOccurrences, useSetOccurrenceCompleted } from "@/hooks/use-recurrence";
-import { useProjectRemindersInRange, useToggleReminderDone } from "@/hooks/use-reminders";
+import { useProjectRemindersInRange } from "@/hooks/use-reminders";
+import { useRecurringReminderOccurrences, useSetReminderOccurrenceCompleted } from "@/hooks/use-reminder-recurrence";
 import { getContrastTextColor, resolveTaskColor } from "@/lib/colors";
 import { minutesToTime, timeToMinutes, toISODate, WEEKDAY_LABELS_MON_FIRST } from "@/lib/date";
 import { layoutOverlaps, type OverlapSlot } from "@/lib/overlap-layout";
+import { isTaskOverdue } from "@/lib/overdue";
 import type { Task } from "@/lib/types";
 
 const GRID_START_MIN = 360; // 06:00
@@ -28,15 +31,6 @@ function dateLabel(d: Date) {
   return `${d.getMonth() + 1}/${d.getDate()} (${WEEKDAY_LABELS_MON_FIRST[(d.getDay() + 6) % 7]})`;
 }
 
-// 逾期但還沒完成／還沒被交辦出去的——不會自動跑去遺忘箱（那是使用者自己決定的事，
-// 見規劃書第 13 節），只在畫面上加個警示 icon 提醒「這個過期了還沒處理」。
-function isOverdue(dateIso: string, endTime: string | null, isAllDay: boolean, status: string): boolean {
-  if (status === "completed" || status === "forgotten" || status === "waiting") return false;
-  const now = new Date();
-  if (isAllDay) return dateIso < toISODate(now);
-  if (!endTime) return false;
-  return new Date(`${dateIso}T${endTime}`) < now;
-}
 
 type Block = {
   id: string;
@@ -59,6 +53,8 @@ type ReminderMarker = {
   top: number;
   color: string;
   completed: boolean;
+  // 重複展開出來的那次沒有自己的 reminder row，只能點一下完成/取消，不能打開面板。
+  occurrence: { ruleId: string; reminderId: string; date: string } | null;
 };
 
 type Column = { key: string; date: string; areaType: "work" | "personal"; label: string; blocks: Block[]; reminders: ReminderMarker[] };
@@ -78,6 +74,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
   const { data: tasks } = useTasksInRange(rangeStart, rangeEnd);
   const { data: occurrences } = useRecurringOccurrences(rangeStart, rangeEnd);
   const { data: projectReminders } = useProjectRemindersInRange(rangeStart, rangeEnd);
+  const { data: reminderOccurrences } = useRecurringReminderOccurrences(rangeStart, rangeEnd);
   const { data: areas } = useAreas();
   const { data: projects } = useProjects();
   const { data: settings } = useUserSettings();
@@ -86,11 +83,14 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
   const openTask = useTaskPanelStore((s) => s.open);
   const setOccurrenceCompleted = useSetOccurrenceCompleted();
   const cancelOccurrence = useCancelOccurrence();
-  const toggleReminderDone = useToggleReminderDone();
+  const openReminder = useReminderPanelStore((s) => s.open);
+  const setReminderOccurrenceCompleted = useSetReminderOccurrenceCompleted();
 
   const showPersonal = useCalendarFilterStore((s) => s.showPersonal);
   const showWork = useCalendarFilterStore((s) => s.showWork);
-  const isProjectVisible = useCalendarFilterStore((s) => s.isProjectVisible);
+  // 選 hiddenProjectIds 本身而不是 isProjectVisible 這個函式參照，見 area-project-filter.tsx 的註解。
+  const hiddenProjectIds = useCalendarFilterStore((s) => s.hiddenProjectIds);
+  const isProjectVisible = (id: string) => !hiddenProjectIds.has(id);
 
   const [overridePos, setOverridePos] = useState<{ blockId: string; top: number; height: number } | null>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -167,6 +167,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
   // 有掛 Project 的提醒，換算成使用者本地時區的日期/分鐘數，畫成小標記（不是滿版色塊）。
   const reminderMarkers: (ReminderMarker & { date: string; areaType: "work" | "personal" })[] = [];
   for (const r of projectReminders ?? []) {
+    if (r.recurrence_rule_id) continue; // 這種改由下面的 occurrences 展開，避免重複顯示
     if (!r.linked_id) continue;
     const project = projects?.find((p) => p.id === r.linked_id);
     if (!project) continue;
@@ -190,6 +191,38 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
       completed: !!r.completed_at,
       date: localIso,
       areaType,
+      occurrence: null,
+    });
+  }
+
+  for (const o of reminderOccurrences ?? []) {
+    if (o.masterReminder.linked_type !== "project" || !o.masterReminder.linked_id) continue;
+    const project = projects?.find((p) => p.id === o.masterReminder.linked_id);
+    if (!project) continue;
+    const areaType = areaTypeOf(project.area_id);
+    if (areaType !== "work" && areaType !== "personal") continue;
+    if (!isVisible(areaType, project.id)) continue;
+    if (!isoList.includes(o.date)) continue;
+
+    const d = new Date(o.remindAt);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const minutesOfDay = d.getHours() * 60 + d.getMinutes();
+    if (minutesOfDay < GRID_START_MIN || minutesOfDay > GRID_END_MIN) continue;
+
+    reminderMarkers.push({
+      id: o.id,
+      title: o.title,
+      time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+      top: minutesOfDay - GRID_START_MIN,
+      color: project.color,
+      completed: o.completed,
+      date: o.date,
+      areaType,
+      occurrence: {
+        ruleId: o.masterReminder.recurrence_rule_id!,
+        reminderId: o.masterReminder.id,
+        date: o.date,
+      },
     });
   }
 
@@ -330,7 +363,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
     // 只是變淡灰色，不整個消失——這樣才看得出「這時段本來排了什麼」。
     const isCompleted = b.realTask ? b.realTask.status === "completed" : !!b.occurrence?.completed;
     const overdue =
-      !isCompleted && b.realTask ? isOverdue(b.date, b.scheduled_end, false, b.realTask.status) : false;
+      !isCompleted && b.realTask ? isTaskOverdue(b.realTask) : false;
     const bg = isCompleted ? "#e5e7eb" : b.color;
     const fg = isCompleted ? "#6b7280" : getContrastTextColor(b.color);
 
@@ -409,7 +442,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
                     .map((b) => {
                       const isCompleted = b.realTask ? b.realTask.status === "completed" : !!b.occurrence?.completed;
                       const overdue =
-                        !isCompleted && b.realTask ? isOverdue(b.date, null, true, b.realTask.status) : false;
+                        !isCompleted && b.realTask ? isTaskOverdue(b.realTask) : false;
                       return (
                         <button
                           key={b.id}
@@ -497,7 +530,11 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
                     key={r.id}
                     onClick={(e) => {
                       e.stopPropagation();
-                      toggleReminderDone.mutate({ id: r.id, done: !r.completed });
+                      if (r.occurrence) {
+                        setReminderOccurrenceCompleted.mutate({ ...r.occurrence, completed: !r.completed });
+                      } else {
+                        openReminder(r.id);
+                      }
                     }}
                     title={`${r.time} ${r.title}${r.completed ? "（已完成）" : ""}`}
                     className="absolute left-0.5 right-0.5 z-20 flex items-center gap-1 truncate rounded border px-1.5 py-0.5 text-[10px] font-semibold shadow-sm"

@@ -66,6 +66,7 @@ export type Todo = {
   id: string;
   user_id: string;
   area_id: string | null;
+  project_id: string | null;
   title: string;
   date: string | null;
   forgotten_until: string | null;
@@ -93,10 +94,12 @@ export type Reminder = {
   id: string;
   user_id: string;
   remind_at: string;
+  is_all_day: boolean;
   linked_type: ReminderLinkedType | null;
   linked_id: string | null;
   title: string | null;
   note: string | null;
+  recurrence_rule_id: string | null;
   completed_at: string | null;
   created_at: string;
 };
@@ -116,6 +119,7 @@ export type RecurrenceInstance = {
   recurrence_rule_id: string;
   task_id: string | null;
   todo_id: string | null;
+  reminder_id: string | null;
   instance_date: string;
   is_cancelled: boolean;
   override_title: string | null;

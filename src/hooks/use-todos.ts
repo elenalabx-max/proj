@@ -2,11 +2,25 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { isTodoOverdue } from "@/lib/overdue";
 import type { Task, Todo } from "@/lib/types";
 import { useUser } from "./use-user";
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
+}
+
+export function useTodo(id: string | null) {
+  return useQuery({
+    queryKey: ["todo", id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.from("todos").select("*").eq("id", id).single();
+      if (error) throw error;
+      return data as Todo;
+    },
+    enabled: !!id,
+  });
 }
 
 // Inbox = 沒有日期、沒有被遺忘（或遺忘已到期）、還沒完成的 Todo。
@@ -51,6 +65,29 @@ export function useTodosForDate(date: string) {
         .order("created_at", { ascending: true });
       if (error) throw error;
       return data as Todo[];
+    },
+    enabled: !!user,
+  });
+}
+
+// 逾期未完成的 Todo（date 是過去式、還沒完成）——同樣算自動遺忘的一種。
+export function useOverdueTodos() {
+  const { user } = useUser();
+  const today = todayISO();
+
+  return useQuery({
+    queryKey: ["todos", "overdue", user?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("todos")
+        .select("*")
+        .lt("date", today)
+        .is("completed_at", null)
+        .is("archived_at", null)
+        .order("date", { ascending: true });
+      if (error) throw error;
+      return (data as Todo[]).filter(isTodoOverdue);
     },
     enabled: !!user,
   });
@@ -113,6 +150,7 @@ export function useRestoreTodo() {
 
 function invalidateTodoQueries(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: ["todos"] });
+  queryClient.invalidateQueries({ queryKey: ["todo"] });
   queryClient.invalidateQueries({ queryKey: ["tasks"] });
 }
 
@@ -185,8 +223,8 @@ export function useConvertTodoToTask() {
       area_id,
     }: {
       todo: Todo;
-      project_id: string;
-      area_id: string;
+      project_id?: string | null;
+      area_id?: string | null;
     }) => {
       const supabase = createClient();
 
@@ -195,8 +233,8 @@ export function useConvertTodoToTask() {
         .insert({
           user_id: user?.id,
           title: todo.title,
-          project_id,
-          area_id,
+          project_id: project_id ?? todo.project_id,
+          area_id: area_id ?? todo.area_id,
           status: "todo",
         })
         .select("*")

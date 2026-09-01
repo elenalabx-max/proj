@@ -8,10 +8,13 @@ type CalendarFilterState = {
   togglePersonal: () => void;
   toggleWork: () => void;
   toggleProject: (id: string) => void;
-  isProjectVisible: (id: string) => boolean;
 };
 
-export const useCalendarFilterStore = create<CalendarFilterState>((set, get) => ({
+// 沒有 isProjectVisible(id) 這種 helper method 是刻意的——它回傳的函式參照永遠不變，
+// 用它當 selector 會讓 Zustand 判斷「選到的值沒變」而跳過重新 render，切換 Project
+// 勾選會變得要等到別的原因觸發 re-render 才生效，感覺卡卡的。要判斷可不可見，
+// 直接選 hiddenProjectIds 本身，再用 `!hiddenProjectIds.has(id)` 現算。
+export const useCalendarFilterStore = create<CalendarFilterState>((set) => ({
   showPersonal: true,
   showWork: true,
   hiddenProjectIds: new Set(),
@@ -24,5 +27,4 @@ export const useCalendarFilterStore = create<CalendarFilterState>((set, get) => 
       else next.add(id);
       return { hiddenProjectIds: next };
     }),
-  isProjectVisible: (id) => !get().hiddenProjectIds.has(id),
 }));

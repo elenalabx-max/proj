@@ -1,5 +1,5 @@
 import { RRule, type Weekday } from "rrule";
-import type { RecurrenceInstance, Task } from "./types";
+import type { RecurrenceInstance, Reminder, Task, Todo } from "./types";
 
 // weekdays 用 0=一 ... 6=日（跟 lib/date.ts 的 WEEKDAY_LABELS_MON_FIRST 對齊）
 const WEEKDAY_CONST: Weekday[] = [RRule.MO, RRule.TU, RRule.WE, RRule.TH, RRule.FR, RRule.SA, RRule.SU];
@@ -128,4 +128,66 @@ export function buildOccurrences(task: Task, dates: string[], instances: Recurre
       };
     })
     .filter((o): o is Occurrence => o !== null);
+}
+
+export type TodoOccurrence = {
+  id: string;
+  date: string;
+  title: string;
+  completed: boolean;
+  masterTodo: Todo;
+};
+
+// Todo 比 Task 簡單很多——沒有時間、沒有全天概念，只有「哪一天」跟「完成了沒」。
+export function buildTodoOccurrences(todo: Todo, dates: string[], instances: RecurrenceInstance[]): TodoOccurrence[] {
+  return dates
+    .map((date) => {
+      const inst = instances.find((i) => i.instance_date === date);
+      if (inst?.is_cancelled) return null;
+      return {
+        id: `${todo.id}:${date}`,
+        date,
+        title: inst?.override_title ?? todo.title,
+        completed: !!inst?.completed_at,
+        masterTodo: todo,
+      };
+    })
+    .filter((o): o is TodoOccurrence => o !== null);
+}
+
+export type ReminderOccurrence = {
+  id: string;
+  date: string;
+  title: string;
+  remindAt: string;
+  isAllDay: boolean;
+  completed: boolean;
+  masterReminder: Reminder;
+};
+
+// Reminder 重複時，每一次都沿用 master 的「幾點幾分」，只換日期。
+export function buildReminderOccurrences(
+  reminder: Reminder,
+  dates: string[],
+  instances: RecurrenceInstance[],
+): ReminderOccurrence[] {
+  const masterTime = new Date(reminder.remind_at);
+  const hh = String(masterTime.getHours()).padStart(2, "0");
+  const mm = String(masterTime.getMinutes()).padStart(2, "0");
+
+  return dates
+    .map((date) => {
+      const inst = instances.find((i) => i.instance_date === date);
+      if (inst?.is_cancelled) return null;
+      return {
+        id: `${reminder.id}:${date}`,
+        date,
+        title: inst?.override_title ?? reminder.title ?? "提醒",
+        remindAt: reminder.is_all_day ? `${date}T00:00:00` : `${date}T${hh}:${mm}:00`,
+        isAllDay: reminder.is_all_day,
+        completed: !!inst?.completed_at,
+        masterReminder: reminder,
+      };
+    })
+    .filter((o): o is ReminderOccurrence => o !== null);
 }

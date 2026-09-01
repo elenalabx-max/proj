@@ -48,7 +48,7 @@ export default function CompletedPage() {
             onClick={() => openTask(t.id)}
             className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-neutral-50"
           >
-            <span className="truncate text-neutral-400 line-through">{t.title}</span>
+            <span className="truncate text-neutral-400">{t.title}</span>
             <span className="shrink-0 text-xs text-neutral-400">
               {t.completed_at ? new Date(t.completed_at).toLocaleDateString("zh-TW") : ""}
             </span>

@@ -14,7 +14,11 @@ export function AreaProjectFilter() {
   const togglePersonal = useCalendarFilterStore((s) => s.togglePersonal);
   const toggleWork = useCalendarFilterStore((s) => s.toggleWork);
   const toggleProject = useCalendarFilterStore((s) => s.toggleProject);
-  const isProjectVisible = useCalendarFilterStore((s) => s.isProjectVisible);
+  // 選 hiddenProjectIds 這個「值」本身，不要選 isProjectVisible 這個 helper 函式——
+  // 函式參照本身不會變，選它會讓 Zustand 誤判「沒變」而不重新 render，勾選會變得
+  // 要等到別的原因觸發 re-render 才會更新，感覺卡卡的。
+  const hiddenProjectIds = useCalendarFilterStore((s) => s.hiddenProjectIds);
+  const isProjectVisible = (id: string) => !hiddenProjectIds.has(id);
 
   const workProjects = (projects ?? []).filter(
     (p) => areas?.find((a) => a.id === p.area_id)?.type === "work",

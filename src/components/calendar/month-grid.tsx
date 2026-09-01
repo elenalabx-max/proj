@@ -24,7 +24,8 @@ export function MonthGrid({ reference, dates }: { reference: Date; dates: Date[]
 
   const showPersonal = useCalendarFilterStore((s) => s.showPersonal);
   const showWork = useCalendarFilterStore((s) => s.showWork);
-  const isProjectVisible = useCalendarFilterStore((s) => s.isProjectVisible);
+  const hiddenProjectIds = useCalendarFilterStore((s) => s.hiddenProjectIds);
+  const isProjectVisible = (id: string) => !hiddenProjectIds.has(id);
 
   function areaTypeOf(task: Task) {
     return areas?.find((a) => a.id === task.area_id)?.type ?? null;

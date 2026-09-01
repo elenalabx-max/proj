@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useDueReminders, useToggleReminderDone } from "@/hooks/use-reminders";
+import { useDueReminders } from "@/hooks/use-reminders";
 import { useReviewTasks } from "@/hooks/use-tasks";
-import { useTaskPanelStore } from "@/stores/task-panel";
+import { useReminderPanelStore } from "@/stores/reminder-panel";
 
 function fmtTime(iso: string) {
   return new Date(iso).toLocaleString("zh-TW", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -14,8 +14,7 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const { data: reminders } = useDueReminders();
   const { data: reviewTasks } = useReviewTasks();
-  const toggleDone = useToggleReminderDone();
-  const openTask = useTaskPanelStore((s) => s.open);
+  const openReminder = useReminderPanelStore((s) => s.open);
   const router = useRouter();
 
   const count = (reminders?.length ?? 0) + (reviewTasks?.length ?? 0);
@@ -48,24 +47,17 @@ export function NotificationBell() {
               <div className="mb-1">
                 <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">提醒</div>
                 {reminders.map((r) => (
-                  <div key={r.id} className="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-neutral-50">
-                    <button
-                      onClick={() => {
-                        if (r.linked_type === "task" && r.linked_id) openTask(r.linked_id);
-                        setOpen(false);
-                      }}
-                      className="min-w-0 flex-1 text-left"
-                    >
-                      <div className="truncate text-neutral-900">{r.title ?? r.note ?? "提醒"}</div>
-                      <div className="font-mono text-[11px] text-neutral-400">{fmtTime(r.remind_at)}</div>
-                    </button>
-                    <button
-                      onClick={() => toggleDone.mutate({ id: r.id, done: true })}
-                      className="ml-2 shrink-0 text-xs text-neutral-400 hover:text-neutral-800"
-                    >
-                      完成
-                    </button>
-                  </div>
+                  <button
+                    key={r.id}
+                    onClick={() => {
+                      openReminder(r.id);
+                      setOpen(false);
+                    }}
+                    className="block w-full rounded-md px-2 py-1.5 text-left hover:bg-neutral-50"
+                  >
+                    <div className="truncate text-neutral-900">{r.title ?? r.note ?? "提醒"}</div>
+                    <div className="font-mono text-[11px] text-neutral-400">{fmtTime(r.remind_at)}</div>
+                  </button>
                 ))}
               </div>
             )}

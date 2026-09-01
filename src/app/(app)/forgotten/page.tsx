@@ -1,13 +1,15 @@
 "use client";
 
 import { useMemo } from "react";
-import { useForgottenTasks, useUpdateTask } from "@/hooks/use-tasks";
-import { useForgottenTodos, useUpdateTodo } from "@/hooks/use-todos";
+import { useForgottenTasks, useOverdueTasks, useUpdateTask } from "@/hooks/use-tasks";
+import { useForgottenTodos, useOverdueTodos, useUpdateTodo } from "@/hooks/use-todos";
 import type { Task, Todo } from "@/lib/types";
 
 const FOREVER = "9999-12-31";
 
-type Row = { kind: "todo"; id: string; title: string; data: Todo } | { kind: "task"; id: string; title: string; data: Task };
+type Row =
+  | { kind: "todo"; id: string; title: string; data: Todo; auto: boolean }
+  | { kind: "task"; id: string; title: string; data: Task; auto: boolean };
 
 function fmtForgottenUntil(iso: string | null) {
   if (!iso) return "無限期";
@@ -18,24 +20,35 @@ function fmtForgottenUntil(iso: string | null) {
 export default function ForgottenPage() {
   const { data: tasks, isLoading: tasksLoading } = useForgottenTasks();
   const { data: todos, isLoading: todosLoading } = useForgottenTodos();
+  const { data: overdueTasks, isLoading: overdueTasksLoading } = useOverdueTasks();
+  const { data: overdueTodos, isLoading: overdueTodosLoading } = useOverdueTodos();
   const updateTask = useUpdateTask();
   const updateTodo = useUpdateTodo();
 
   const rows: Row[] = useMemo(() => {
-    const taskRows: Row[] = (tasks ?? []).map((t) => ({ kind: "task", id: t.id, title: t.title, data: t }));
-    const todoRows: Row[] = (todos ?? []).map((t) => ({ kind: "todo", id: t.id, title: t.title, data: t }));
-    return [...taskRows, ...todoRows];
-  }, [tasks, todos]);
+    const taskRows: Row[] = (tasks ?? []).map((t) => ({ kind: "task", id: t.id, title: t.title, data: t, auto: false }));
+    const todoRows: Row[] = (todos ?? []).map((t) => ({ kind: "todo", id: t.id, title: t.title, data: t, auto: false }));
+    const overdueTaskRows: Row[] = (overdueTasks ?? []).map((t) => ({ kind: "task", id: t.id, title: t.title, data: t, auto: true }));
+    const overdueTodoRows: Row[] = (overdueTodos ?? []).map((t) => ({ kind: "todo", id: t.id, title: t.title, data: t, auto: true }));
+    return [...taskRows, ...todoRows, ...overdueTaskRows, ...overdueTodoRows];
+  }, [tasks, todos, overdueTasks, overdueTodos]);
 
   function restore(row: Row) {
     if (row.kind === "task") {
-      updateTask.mutate({ id: row.id, patch: { status: "inbox", forgotten_until: null } });
+      // 自動遺忘（逾期）的沒有 forgotten_until 可清，要連日期一起清掉才不會一移回
+      // Inbox 又立刻被判定成逾期。
+      updateTask.mutate({
+        id: row.id,
+        patch: row.auto
+          ? { status: "inbox", due_date: null, scheduled_date: null, scheduled_start: null, scheduled_end: null }
+          : { status: "inbox", forgotten_until: null },
+      });
     } else {
-      updateTodo.mutate({ id: row.id, patch: { forgotten_until: null } });
+      updateTodo.mutate({ id: row.id, patch: row.auto ? { date: null } : { forgotten_until: null } });
     }
   }
 
-  const loading = tasksLoading || todosLoading;
+  const loading = tasksLoading || todosLoading || overdueTasksLoading || overdueTodosLoading;
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
@@ -51,17 +64,24 @@ export default function ForgottenPage() {
 
       <div className="divide-y divide-neutral-100 rounded-lg border border-neutral-200 bg-white">
         {rows.map((r) => (
-          <div key={`${r.kind}:${r.id}`} className="flex items-center justify-between px-4 py-2.5">
+          <div key={`${r.kind}:${r.auto ? "auto" : "manual"}:${r.id}`} className="flex items-center justify-between px-4 py-2.5">
             <div className="flex items-center gap-2">
               <span className="text-sm text-neutral-900">{r.title}</span>
               <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-500">
                 {r.kind === "todo" ? "Todo" : "Task"}
               </span>
+              {r.auto && (
+                <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-600">逾期</span>
+              )}
             </div>
             <div className="flex items-center gap-3 text-xs">
-              <span className="text-neutral-400">{fmtForgottenUntil(r.data.forgotten_until)}</span>
+              <span className="text-neutral-400">
+                {r.auto
+                  ? `逾期 ${r.kind === "task" ? (r.data as Task).due_date ?? (r.data as Task).scheduled_date : (r.data as Todo).date}`
+                  : fmtForgottenUntil(r.data.forgotten_until)}
+              </span>
               <button onClick={() => restore(r)} className="font-medium text-neutral-500 hover:text-neutral-900 hover:underline">
-                取消遺忘
+                {r.auto ? "移回 Inbox" : "取消遺忘"}
               </button>
             </div>
           </div>

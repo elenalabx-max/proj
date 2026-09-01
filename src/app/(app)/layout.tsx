@@ -6,6 +6,8 @@ import { ActiveTimerBadge } from "@/components/layout/active-timer-badge";
 import { GlobalSearch } from "@/components/layout/global-search";
 import { NotificationBell } from "@/components/layout/notification-bell";
 import { TaskDetailPanel } from "@/components/tasks/task-detail-panel";
+import { ReminderDetailPanel } from "@/components/reminders/reminder-detail-panel";
+import { TodoDetailPanel } from "@/components/todos/todo-detail-panel";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -37,6 +39,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <main className="w-full flex-1 px-6 py-8">{children}</main>
       </div>
       <TaskDetailPanel />
+      <ReminderDetailPanel />
+      <TodoDetailPanel />
     </div>
   );
 }

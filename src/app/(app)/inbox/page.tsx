@@ -3,9 +3,10 @@
 import { useMemo, useState } from "react";
 import { useAreas } from "@/hooks/use-areas";
 import { useProjects } from "@/hooks/use-projects";
-import { useInboxTodos, useUpdateTodo, useConvertTodoToTask } from "@/hooks/use-todos";
+import { useInboxTodos, useUpdateTodo } from "@/hooks/use-todos";
 import { useInboxTasks, useUpdateTask, useBulkUpdateTasks } from "@/hooks/use-tasks";
 import { useTaskPanelStore } from "@/stores/task-panel";
+import { useTodoPanelStore } from "@/stores/todo-panel";
 import { CheckboxIcon } from "@/components/ui/checkbox";
 import type { Task, Todo } from "@/lib/types";
 
@@ -28,7 +29,6 @@ export default function InboxPage() {
   const { data: areas } = useAreas();
 
   const updateTodo = useUpdateTodo();
-  const convertTodo = useConvertTodoToTask();
   const updateTask = useUpdateTask();
   const bulkUpdateTasks = useBulkUpdateTasks();
 
@@ -80,7 +80,8 @@ export default function InboxPage() {
     const project = projects?.find((p) => p.id === projectId);
     if (!project) return;
     if (r.kind === "todo") {
-      await convertTodo.mutateAsync({ todo: r.data, project_id: project.id, area_id: project.area_id });
+      // Todo 掛 Project 只是貼標籤，不會因此升級成 Task（還是留在 Inbox 之外要自己排日期）。
+      await updateTodo.mutateAsync({ id: r.id, patch: { project_id: project.id, area_id: project.area_id } });
     } else {
       await updateTask.mutateAsync({
         id: r.id,
@@ -219,6 +220,7 @@ function InboxRow({
   const [titleDraft, setTitleDraft] = useState(row.title);
 
   const openTask = useTaskPanelStore((s) => s.open);
+  const openTodo = useTodoPanelStore((s) => s.open);
   const updateTodo = useUpdateTodo();
 
   function commitTitle() {
@@ -265,9 +267,17 @@ function InboxRow({
           </button>
         )}
 
-        <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-500">
-          {row.kind === "todo" ? "Todo" : "Task"}
-        </span>
+        {row.kind === "todo" ? (
+          <button
+            onClick={() => openTodo(row.id)}
+            title="Area／Project／重複…等細節設定"
+            className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-500 hover:bg-neutral-200"
+          >
+            Todo
+          </button>
+        ) : (
+          <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-500">Task</span>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5 pl-7 text-xs text-neutral-500">

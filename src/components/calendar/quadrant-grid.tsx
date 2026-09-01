@@ -27,7 +27,8 @@ export function QuadrantGrid({ date }: { date: Date }) {
 
   const showPersonal = useCalendarFilterStore((s) => s.showPersonal);
   const showWork = useCalendarFilterStore((s) => s.showWork);
-  const isProjectVisible = useCalendarFilterStore((s) => s.isProjectVisible);
+  const hiddenProjectIds = useCalendarFilterStore((s) => s.hiddenProjectIds);
+  const isProjectVisible = (id: string) => !hiddenProjectIds.has(id);
 
   const dragTaskIdRef = useRef<string | null>(null);
 

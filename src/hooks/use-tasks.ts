@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Task } from "@/lib/types";
+import { isTaskOverdue } from "@/lib/overdue";
 import { useUser } from "./use-user";
 
 // Inbox = 還沒分類的（status='inbox'），加上「遺忘到某一天、期限已到」的那些
@@ -204,6 +205,29 @@ export function useRestoreTask() {
       if (error) throw error;
     },
     onSuccess: () => invalidateTaskQueries(queryClient),
+  });
+}
+
+// 逾期未完成的（算自動遺忘的一種，見 src/lib/overdue.ts）。用「排定日期/Due Date
+// 是今天或更早」先在 DB 端縮小範圍，精確判斷交給共用的 isTaskOverdue。
+export function useOverdueTasks() {
+  const { user } = useUser();
+  const today = new Date().toISOString().slice(0, 10);
+
+  return useQuery({
+    queryKey: ["tasks", "overdue-candidates", user?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*")
+        .is("archived_at", null)
+        .or(`scheduled_date.lte.${today},due_date.lte.${today}`)
+        .order("scheduled_date", { ascending: true });
+      if (error) throw error;
+      return (data as Task[]).filter(isTaskOverdue);
+    },
+    enabled: !!user,
   });
 }
 

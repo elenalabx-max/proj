@@ -7,7 +7,11 @@ import { useTasksInRange } from "@/hooks/use-calendar-tasks";
 import { useTodosForDate, useCompleteTodo, useCreateTodo } from "@/hooks/use-todos";
 import { useReviewTasks } from "@/hooks/use-tasks";
 import { useRemindersOnDate, useToggleReminderDone } from "@/hooks/use-reminders";
+import { useRecurringTodoOccurrences, useSetTodoOccurrenceCompleted } from "@/hooks/use-todo-recurrence";
+import { useRecurringReminderOccurrences, useSetReminderOccurrenceCompleted } from "@/hooks/use-reminder-recurrence";
 import { useTaskPanelStore } from "@/stores/task-panel";
+import { useReminderPanelStore } from "@/stores/reminder-panel";
+import { useTodoPanelStore } from "@/stores/todo-panel";
 import { MultiDayTimeline } from "@/components/calendar/multi-day-timeline";
 import { QuadrantGrid } from "@/components/calendar/quadrant-grid";
 import { AreaProjectFilter } from "@/components/calendar/area-project-filter";
@@ -64,10 +68,16 @@ export default function TodayPage() {
   const { data: todos } = useTodosForDate(iso);
   const { data: reviewTasks } = useReviewTasks();
   const { data: reminders } = useRemindersOnDate(iso);
+  const { data: todoOccurrences } = useRecurringTodoOccurrences(iso, iso);
+  const { data: reminderOccurrences } = useRecurringReminderOccurrences(iso, iso);
   const openTask = useTaskPanelStore((s) => s.open);
+  const openReminder = useReminderPanelStore((s) => s.open);
+  const openTodo = useTodoPanelStore((s) => s.open);
   const completeTodo = useCompleteTodo();
   const createTodo = useCreateTodo();
   const toggleReminderDone = useToggleReminderDone();
+  const setTodoOccurrenceCompleted = useSetTodoOccurrenceCompleted();
+  const setReminderOccurrenceCompleted = useSetReminderOccurrenceCompleted();
 
   const [view, setView] = useState<"timeline" | "quadrant">("timeline");
   const [newTodoTitle, setNewTodoTitle] = useState("");
@@ -83,6 +93,10 @@ export default function TodayPage() {
   const scheduled = (tasks ?? [])
     .filter((t) => !t.is_all_day && t.scheduled_start)
     .sort((a, b) => (a.scheduled_start ?? "").localeCompare(b.scheduled_start ?? ""));
+
+  // master（設了 recurrence_rule_id 的）改由下面展開的 occurrences 顯示，避免重複。
+  const literalTodos = (todos ?? []).filter((t) => !t.recurrence_rule_id);
+  const literalReminders = (reminders ?? []).filter((r) => !r.recurrence_rule_id);
 
   return (
     <div className="space-y-5">
@@ -105,14 +119,36 @@ export default function TodayPage() {
         </SummaryCard>
 
         <SummaryCard icon={<TodoGlyph />} title="今天 Todo">
-          {todos?.length === 0 && <Empty />}
-          {todos?.map((t) => (
-            <label key={t.id} className="flex items-center gap-1.5 text-xs text-neutral-800">
+          {literalTodos.length === 0 && (todoOccurrences?.length ?? 0) === 0 && <Empty />}
+          {literalTodos.map((t) => (
+            <div key={t.id} className="flex items-center gap-1.5 text-xs text-neutral-800">
               <button type="button" onClick={() => completeTodo.mutate({ id: t.id, completed: true })}>
                 <CheckboxIcon checked={false} />
               </button>
-              <span className="truncate">{t.title}</span>
-            </label>
+              <button onClick={() => openTodo(t.id)} className="min-w-0 flex-1 truncate text-left hover:underline">
+                {t.title}
+              </button>
+            </div>
+          ))}
+          {todoOccurrences?.map((o) => (
+            <div key={o.id} className="flex items-center gap-1.5 text-xs text-neutral-800">
+              <button
+                type="button"
+                onClick={() =>
+                  setTodoOccurrenceCompleted.mutate({
+                    ruleId: o.masterTodo.recurrence_rule_id!,
+                    todoId: o.masterTodo.id,
+                    date: o.date,
+                    completed: !o.completed,
+                  })
+                }
+              >
+                <CheckboxIcon checked={o.completed} />
+              </button>
+              <span className={`min-w-0 flex-1 truncate ${o.completed ? "text-neutral-400 line-through" : ""}`}>
+                {o.title}
+              </span>
+            </div>
           ))}
           <form onSubmit={handleAddTodayTodo}>
             <input
@@ -134,14 +170,14 @@ export default function TodayPage() {
         </SummaryCard>
 
         <SummaryCard icon={<ReminderGlyph />} title="提醒">
-          {reminders?.length === 0 && <Empty />}
-          {reminders?.map((r) => (
+          {literalReminders.length === 0 && (reminderOccurrences?.length ?? 0) === 0 && <Empty />}
+          {literalReminders.map((r) => (
             <div key={r.id} className="flex items-center gap-1.5 text-xs">
               <button type="button" onClick={() => toggleReminderDone.mutate({ id: r.id, done: !r.completed_at })}>
                 <CheckboxIcon checked={!!r.completed_at} />
               </button>
               <button
-                onClick={() => r.linked_type === "task" && r.linked_id && openTask(r.linked_id)}
+                onClick={() => openReminder(r.id)}
                 className="flex min-w-0 flex-1 items-start gap-1.5 text-left hover:underline"
               >
                 <span className="shrink-0 font-mono text-neutral-400">
@@ -151,6 +187,33 @@ export default function TodayPage() {
                   {r.title ?? r.note ?? "提醒"}
                 </span>
               </button>
+            </div>
+          ))}
+          {reminderOccurrences?.map((o) => (
+            <div key={o.id} className="flex items-center gap-1.5 text-xs">
+              <button
+                type="button"
+                onClick={() =>
+                  setReminderOccurrenceCompleted.mutate({
+                    ruleId: o.masterReminder.recurrence_rule_id!,
+                    reminderId: o.masterReminder.id,
+                    date: o.date,
+                    completed: !o.completed,
+                  })
+                }
+              >
+                <CheckboxIcon checked={o.completed} />
+              </button>
+              <span className="flex min-w-0 flex-1 items-start gap-1.5 text-left">
+                <span className="shrink-0 font-mono text-neutral-400">
+                  {o.isAllDay
+                    ? "整天"
+                    : new Date(o.remindAt).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}
+                </span>
+                <span className={`truncate ${o.completed ? "text-neutral-400 line-through" : "text-neutral-800"}`}>
+                  {o.title}
+                </span>
+              </span>
             </div>
           ))}
         </SummaryCard>

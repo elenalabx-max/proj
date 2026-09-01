@@ -73,6 +73,19 @@ export function useDueReminders() {
   });
 }
 
+export function useReminder(id: string | null) {
+  return useQuery({
+    queryKey: ["reminder", id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.from("reminders").select("*").eq("id", id).single();
+      if (error) throw error;
+      return data as Reminder;
+    },
+    enabled: !!id,
+  });
+}
+
 export function useCreateReminder() {
   const queryClient = useQueryClient();
   const { user } = useUser();
@@ -84,12 +97,14 @@ export function useCreateReminder() {
       remindAt,
       note,
       title,
+      isAllDay,
     }: {
       linkedType: ReminderLinkedType;
       linkedId?: string | null;
       remindAt: string;
       note?: string;
       title?: string;
+      isAllDay?: boolean;
     }) => {
       const supabase = createClient();
       const { data, error } = await supabase
@@ -101,11 +116,25 @@ export function useCreateReminder() {
           remind_at: remindAt,
           note: note || null,
           title: title || null,
+          is_all_day: isAllDay ?? false,
         })
         .select("*")
         .single();
       if (error) throw error;
       return data as Reminder;
+    },
+    onSuccess: () => invalidateReminders(queryClient),
+  });
+}
+
+export function useUpdateReminder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, patch }: { id: string; patch: Partial<Reminder> }) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("reminders").update(patch).eq("id", id);
+      if (error) throw error;
     },
     onSuccess: () => invalidateReminders(queryClient),
   });
