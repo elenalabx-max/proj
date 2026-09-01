@@ -6,6 +6,7 @@ import { useProjects } from "@/hooks/use-projects";
 import { useInboxTodos, useUpdateTodo, useConvertTodoToTask } from "@/hooks/use-todos";
 import { useInboxTasks, useUpdateTask, useBulkUpdateTasks } from "@/hooks/use-tasks";
 import { useTaskPanelStore } from "@/stores/task-panel";
+import { CheckboxIcon } from "@/components/ui/checkbox";
 import type { Task, Todo } from "@/lib/types";
 
 type Row =
@@ -233,7 +234,9 @@ function InboxRow({
   return (
     <div className="flex flex-col gap-1.5 px-4 py-2.5">
       <div className="flex items-center gap-3">
-        <input type="checkbox" checked={checked} onChange={onToggle} />
+        <button type="button" role="checkbox" aria-checked={checked} onClick={onToggle}>
+          <CheckboxIcon checked={checked} />
+        </button>
 
         {row.kind === "task" ? (
           <button

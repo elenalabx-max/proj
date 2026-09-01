@@ -6,6 +6,7 @@ import { useTask, useUpdateTask, useArchiveTask } from "@/hooks/use-tasks";
 import { useAreas } from "@/hooks/use-areas";
 import { useProjects } from "@/hooks/use-projects";
 import { TASK_STATUS_LABEL, type Area, type Project, type Task, type TaskStatus } from "@/lib/types";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const STATUS_OPTIONS = Object.keys(TASK_STATUS_LABEL) as TaskStatus[];
 
@@ -127,22 +128,16 @@ function TaskPanelBody({
         </div>
 
         <div className="flex gap-4">
-          <label className="flex items-center gap-1.5 text-sm">
-            <input
-              type="checkbox"
-              checked={task.important}
-              onChange={(e) => updateTask.mutate({ id: task.id, patch: { important: e.target.checked } })}
-            />
-            重要
-          </label>
-          <label className="flex items-center gap-1.5 text-sm">
-            <input
-              type="checkbox"
-              checked={task.urgent}
-              onChange={(e) => updateTask.mutate({ id: task.id, patch: { urgent: e.target.checked } })}
-            />
-            緊急
-          </label>
+          <Checkbox
+            checked={task.important}
+            onChange={() => updateTask.mutate({ id: task.id, patch: { important: !task.important } })}
+            label="重要"
+          />
+          <Checkbox
+            checked={task.urgent}
+            onChange={() => updateTask.mutate({ id: task.id, patch: { urgent: !task.urgent } })}
+            label="緊急"
+          />
         </div>
 
         <div>
@@ -158,21 +153,19 @@ function TaskPanelBody({
         <div className="space-y-2 rounded-md border border-neutral-200 p-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-neutral-500">排定時間（Calendar 上顯示的時間）</span>
-            <label className="flex items-center gap-1.5 text-xs">
-              <input
-                type="checkbox"
-                checked={task.is_all_day}
-                onChange={(e) =>
-                  updateTask.mutate({
-                    id: task.id,
-                    patch: e.target.checked
-                      ? { is_all_day: true, scheduled_start: null, scheduled_end: null }
-                      : { is_all_day: false },
-                  })
-                }
-              />
-              全天
-            </label>
+            <Checkbox
+              checked={task.is_all_day}
+              onChange={() =>
+                updateTask.mutate({
+                  id: task.id,
+                  patch: !task.is_all_day
+                    ? { is_all_day: true, scheduled_start: null, scheduled_end: null }
+                    : { is_all_day: false },
+                })
+              }
+              className="text-xs"
+              label="全天"
+            />
           </div>
 
           <input
@@ -222,15 +215,23 @@ function TaskPanelBody({
           />
         </div>
 
-        <button
-          onClick={() => {
-            archiveTask.mutate(task.id);
-            close();
-          }}
-          className="text-xs font-medium text-red-500 hover:underline"
-        >
-          封存這個 Task
-        </button>
+        <div>
+          <button
+            onClick={() => {
+              archiveTask.mutate(task.id);
+              close();
+            }}
+            className="flex items-center gap-1.5 text-xs font-medium text-red-500 hover:underline"
+          >
+            <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 4.5h10M6.5 4.5V3a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1.5M4 4.5 4.6 13a1 1 0 0 0 1 .9h4.8a1 1 0 0 0 1-.9l.6-8.5" />
+            </svg>
+            刪除 Task
+          </button>
+          <p className="mt-1 text-[11px] text-neutral-400">
+            會封存而不是永久刪除，之後可以從 Archive 復原（Phase 9 才會做復原介面）。
+          </p>
+        </div>
       </div>
     </div>
   );

@@ -3,6 +3,7 @@
 import { useAreas } from "@/hooks/use-areas";
 import { useProjects } from "@/hooks/use-projects";
 import { useCalendarFilterStore } from "@/stores/calendar-filter";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export function AreaProjectFilter() {
   const { data: areas } = useAreas();
@@ -21,28 +22,35 @@ export function AreaProjectFilter() {
 
   return (
     <div className="w-44 shrink-0 space-y-3 text-sm">
-      <label className="flex items-center gap-2 font-medium text-neutral-800">
-        <input type="checkbox" checked={showPersonal} onChange={togglePersonal} />
-        個人
-      </label>
+      <Checkbox
+        checked={showPersonal}
+        onChange={togglePersonal}
+        className="font-medium text-neutral-800"
+        label="個人"
+      />
 
       <div>
-        <label className="flex items-center gap-2 font-medium text-neutral-800">
-          <input type="checkbox" checked={showWork} onChange={toggleWork} />
-          工作
-        </label>
+        <Checkbox
+          checked={showWork}
+          onChange={toggleWork}
+          className="font-medium text-neutral-800"
+          label="工作"
+        />
         {showWork && (
-          <div className="mt-1.5 ml-5 space-y-1.5">
+          <div className="mt-1.5 ml-6 space-y-1.5">
             {workProjects.map((p) => (
-              <label key={p.id} className="flex items-center gap-2 text-neutral-600">
-                <input
-                  type="checkbox"
-                  checked={isProjectVisible(p.id)}
-                  onChange={() => toggleProject(p.id)}
-                />
-                <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: p.color }} />
-                <span className="truncate">{p.name}</span>
-              </label>
+              <Checkbox
+                key={p.id}
+                checked={isProjectVisible(p.id)}
+                onChange={() => toggleProject(p.id)}
+                className="text-neutral-600"
+                label={
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: p.color }} />
+                    <span className="truncate">{p.name}</span>
+                  </span>
+                }
+              />
             ))}
           </div>
         )}
