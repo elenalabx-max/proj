@@ -21,40 +21,31 @@ export function AreaProjectFilter() {
   );
 
   return (
-    <div className="w-44 shrink-0 space-y-3 text-sm">
-      <EyeToggle
-        checked={showPersonal}
-        onChange={togglePersonal}
-        className="font-medium text-neutral-800"
-        label="個人"
-      />
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm">
+      <EyeToggle checked={showPersonal} onChange={togglePersonal} className="font-medium text-neutral-800" label="個人" />
 
-      <div>
-        <EyeToggle
-          checked={showWork}
-          onChange={toggleWork}
-          className="font-medium text-neutral-800"
-          label="工作"
-        />
-        {showWork && (
-          <div className="mt-1.5 ml-6 space-y-1.5">
-            {workProjects.map((p) => (
-              <EyeToggle
-                key={p.id}
-                checked={isProjectVisible(p.id)}
-                onChange={() => toggleProject(p.id)}
-                className="text-neutral-600"
-                label={
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: p.color }} />
-                    <span className="truncate">{p.name}</span>
-                  </span>
-                }
-              />
-            ))}
-          </div>
-        )}
-      </div>
+      <div className="h-4 w-px bg-neutral-200" />
+
+      <EyeToggle checked={showWork} onChange={toggleWork} className="font-medium text-neutral-800" label="工作" />
+
+      {showWork && workProjects.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+          {workProjects.map((p) => (
+            <EyeToggle
+              key={p.id}
+              checked={isProjectVisible(p.id)}
+              onChange={() => toggleProject(p.id)}
+              className="text-neutral-600"
+              label={
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: p.color }} />
+                  <span className="truncate">{p.name}</span>
+                </span>
+              }
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

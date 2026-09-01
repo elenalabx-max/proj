@@ -5,9 +5,9 @@ import { usePathname } from "next/navigation";
 import { AreaProjectFilter } from "@/components/calendar/area-project-filter";
 
 const TABS = [
-  { href: "/calendar/month", label: "Month" },
+  { href: "/calendar/3days", label: "3 Days" },
   { href: "/calendar/week", label: "Week" },
-  { href: "/calendar/day", label: "Day" },
+  { href: "/calendar/month", label: "Month" },
 ];
 
 export default function CalendarLayout({ children }: { children: React.ReactNode }) {
@@ -34,10 +34,9 @@ export default function CalendarLayout({ children }: { children: React.ReactNode
         </div>
       </div>
 
-      <div className="flex items-start gap-6">
-        <AreaProjectFilter />
-        <div className="min-w-0 flex-1">{children}</div>
-      </div>
+      <AreaProjectFilter />
+
+      <div className="min-w-0">{children}</div>
     </div>
   );
 }

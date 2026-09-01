@@ -68,7 +68,7 @@ export function MonthGrid({ reference, dates }: { reference: Date; dates: Date[]
           return (
             <button
               key={iso}
-              onClick={() => router.push(`/calendar/day?date=${iso}`)}
+              onClick={() => router.push(`/calendar/3days?date=${iso}`)}
               className={`min-h-[92px] border-b border-r border-neutral-100 p-1.5 text-left align-top hover:bg-neutral-50 ${
                 inMonth ? "" : "bg-neutral-50/60"
               }`}
