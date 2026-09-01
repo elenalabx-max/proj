@@ -34,6 +34,62 @@ export function useInboxTodos() {
   });
 }
 
+// 還在遺忘中、還沒到期的 Todo（跟 useInboxTodos 的條件互補）。
+export function useForgottenTodos() {
+  const { user } = useUser();
+  const today = todayISO();
+
+  return useQuery({
+    queryKey: ["todos", "forgotten", user?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("todos")
+        .select("*")
+        .is("completed_at", null)
+        .is("archived_at", null)
+        .not("forgotten_until", "is", null)
+        .gt("forgotten_until", today)
+        .order("forgotten_until", { ascending: true });
+      if (error) throw error;
+      return data as Todo[];
+    },
+    enabled: !!user,
+  });
+}
+
+export function useArchivedTodos() {
+  const { user } = useUser();
+
+  return useQuery({
+    queryKey: ["todos", "archived", user?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("todos")
+        .select("*")
+        .not("archived_at", "is", null)
+        .order("archived_at", { ascending: false });
+      if (error) throw error;
+      return data as Todo[];
+    },
+    enabled: !!user,
+  });
+}
+
+export function useRestoreTodo() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("todos").update({ archived_at: null }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => invalidateTodoQueries(queryClient),
+  });
+}
+
 function invalidateTodoQueries(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: ["todos"] });
   queryClient.invalidateQueries({ queryKey: ["tasks"] });

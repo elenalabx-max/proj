@@ -3,6 +3,8 @@ import { signOut } from "./actions";
 import { Sidebar } from "@/components/layout/sidebar";
 import { QuickAdd } from "@/components/layout/quick-add";
 import { ActiveTimerBadge } from "@/components/layout/active-timer-badge";
+import { GlobalSearch } from "@/components/layout/global-search";
+import { NotificationBell } from "@/components/layout/notification-bell";
 import { TaskDetailPanel } from "@/components/tasks/task-detail-panel";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -17,8 +19,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center gap-4 border-b border-neutral-200 bg-white px-6 py-3">
           <QuickAdd />
+          <GlobalSearch />
           <ActiveTimerBadge />
-          <div className="ml-auto flex items-center gap-4">
+          <div className="ml-auto flex items-center gap-3">
+            <NotificationBell />
             <span className="text-xs text-neutral-500">{user?.email}</span>
             <form action={signOut}>
               <button

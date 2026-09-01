@@ -40,28 +40,6 @@ function NavLink({
   );
 }
 
-function DisabledNavItem({
-  icon,
-  label,
-  phase,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  phase: string;
-}) {
-  return (
-    <div className="flex items-center justify-between rounded-md px-2.5 py-1.5 text-[13px] font-medium text-neutral-300">
-      <span className="flex items-center gap-2.5">
-        {icon}
-        {label}
-      </span>
-      <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-400">
-        {phase}
-      </span>
-    </div>
-  );
-}
-
 export function Sidebar() {
   const pathname = usePathname();
   const { data: areas } = useAreas();
@@ -98,7 +76,7 @@ export function Sidebar() {
               </span>
             )}
           </div>
-          <DisabledNavItem icon={<ForgottenIcon />} label="Forgotten" phase="Phase 9" />
+          <NavLink href="/forgotten" icon={<ForgottenIcon />} label="Forgotten" active={pathname === "/forgotten"} />
         </div>
 
         <div className="flex flex-col gap-0.5 border-t border-neutral-200 pt-3">
@@ -131,7 +109,7 @@ export function Sidebar() {
         </div>
 
         <div className="flex flex-col gap-0.5 border-t border-neutral-200 pt-3">
-          <DisabledNavItem icon={<CompletedIcon />} label="Completed" phase="之後" />
+          <NavLink href="/completed" icon={<CompletedIcon />} label="Completed" active={pathname === "/completed"} />
           <NavLink
             href="/settings/colors"
             icon={<SettingsIcon />}

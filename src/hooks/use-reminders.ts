@@ -27,6 +27,28 @@ function invalidate(queryClient: ReturnType<typeof useQueryClient>, linkedType: 
   queryClient.invalidateQueries({ queryKey: ["reminders", linkedType, linkedId] });
 }
 
+// 已經到時間、還沒完成的提醒——通知鈴鐺用。沒有背景 job 推播，查詢當下直接比對時間就好。
+export function useDueReminders() {
+  const { user } = useUser();
+
+  return useQuery({
+    queryKey: ["reminders", "due", user?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("reminders")
+        .select("*")
+        .is("completed_at", null)
+        .lte("remind_at", new Date().toISOString())
+        .order("remind_at", { ascending: true });
+      if (error) throw error;
+      return data as Reminder[];
+    },
+    enabled: !!user,
+    refetchInterval: 60_000,
+  });
+}
+
 export function useCreateReminder() {
   const queryClient = useQueryClient();
   const { user } = useUser();
@@ -37,11 +59,13 @@ export function useCreateReminder() {
       linkedId,
       remindAt,
       note,
+      title,
     }: {
       linkedType: ReminderLinkedType;
       linkedId: string;
       remindAt: string;
       note?: string;
+      title?: string;
     }) => {
       const supabase = createClient();
       const { data, error } = await supabase
@@ -52,6 +76,7 @@ export function useCreateReminder() {
           linked_id: linkedId,
           remind_at: remindAt,
           note: note || null,
+          title: title || null,
         })
         .select("*")
         .single();

@@ -5,8 +5,11 @@ import { createClient } from "@/lib/supabase/client";
 import type { Task } from "@/lib/types";
 import { useUser } from "./use-user";
 
+// Inbox = 還沒分類的（status='inbox'），加上「遺忘到某一天、期限已到」的那些
+// （見規劃書第 13 節：到期後自動回到 Inbox）。無限期遺忘的不會出現在這裡。
 export function useInboxTasks() {
   const { user } = useUser();
+  const today = new Date().toISOString().slice(0, 10);
 
   return useQuery({
     queryKey: ["tasks", "inbox", user?.id],
@@ -15,7 +18,7 @@ export function useInboxTasks() {
       const { data, error } = await supabase
         .from("tasks")
         .select("*")
-        .eq("status", "inbox")
+        .or(`status.eq.inbox,and(status.eq.forgotten,forgotten_until.lte.${today})`)
         .is("archived_at", null)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -143,6 +146,61 @@ export function useCompleteTask() {
         .from("tasks")
         .update({ status: "completed", completed_at: new Date().toISOString() })
         .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => invalidateTaskQueries(queryClient),
+  });
+}
+
+// 還在遺忘中、還沒到期的（無限期，或遺忘到某天但那天還沒到）。
+export function useForgottenTasks() {
+  const { user } = useUser();
+  const today = new Date().toISOString().slice(0, 10);
+
+  return useQuery({
+    queryKey: ["tasks", "forgotten", user?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("status", "forgotten")
+        .is("archived_at", null)
+        .or(`forgotten_until.is.null,forgotten_until.gt.${today}`)
+        .order("forgotten_until", { ascending: true, nullsFirst: false });
+      if (error) throw error;
+      return data as Task[];
+    },
+    enabled: !!user,
+  });
+}
+
+export function useArchivedTasks() {
+  const { user } = useUser();
+
+  return useQuery({
+    queryKey: ["tasks", "archived", user?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*")
+        .not("archived_at", "is", null)
+        .order("archived_at", { ascending: false });
+      if (error) throw error;
+      return data as Task[];
+    },
+    enabled: !!user,
+  });
+}
+
+export function useRestoreTask() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("tasks").update({ archived_at: null }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => invalidateTaskQueries(queryClient),

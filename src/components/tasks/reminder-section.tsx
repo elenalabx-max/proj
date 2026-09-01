@@ -14,7 +14,12 @@ export function ReminderSection({ task }: { task: Task }) {
   function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     if (!remindAt) return;
-    createReminder.mutate({ linkedType: "task", linkedId: task.id, remindAt: new Date(remindAt).toISOString() });
+    createReminder.mutate({
+      linkedType: "task",
+      linkedId: task.id,
+      remindAt: new Date(remindAt).toISOString(),
+      title: task.title,
+    });
     setRemindAt("");
   }
 

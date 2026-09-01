@@ -94,6 +94,38 @@ export function useUpdateProject() {
   });
 }
 
+export function useArchivedProjects() {
+  const { user } = useUser();
+
+  return useQuery({
+    queryKey: ["projects", "archived", user?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("projects")
+        .select("*")
+        .not("archived_at", "is", null)
+        .order("archived_at", { ascending: false });
+      if (error) throw error;
+      return data as Project[];
+    },
+    enabled: !!user,
+  });
+}
+
+export function useRestoreProject() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("projects").update({ archived_at: null, status: "active" }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["projects"] }),
+  });
+}
+
 export function useArchiveProject() {
   const queryClient = useQueryClient();
 
