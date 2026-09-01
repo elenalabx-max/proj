@@ -35,6 +35,27 @@ export function useInboxTodos() {
 }
 
 // 還在遺忘中、還沒到期的 Todo（跟 useInboxTodos 的條件互補）。
+export function useTodosForDate(date: string) {
+  const { user } = useUser();
+
+  return useQuery({
+    queryKey: ["todos", "date", date, user?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("todos")
+        .select("*")
+        .eq("date", date)
+        .is("completed_at", null)
+        .is("archived_at", null)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data as Todo[];
+    },
+    enabled: !!user,
+  });
+}
+
 export function useForgottenTodos() {
   const { user } = useUser();
   const today = todayISO();

@@ -27,6 +27,27 @@ function invalidate(queryClient: ReturnType<typeof useQueryClient>, linkedType: 
   queryClient.invalidateQueries({ queryKey: ["reminders", linkedType, linkedId] });
 }
 
+export function useRemindersOnDate(date: string) {
+  const { user } = useUser();
+
+  return useQuery({
+    queryKey: ["reminders", "date", date, user?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("reminders")
+        .select("*")
+        .gte("remind_at", `${date}T00:00:00`)
+        .lt("remind_at", `${date}T23:59:59.999`)
+        .is("completed_at", null)
+        .order("remind_at", { ascending: true });
+      if (error) throw error;
+      return data as Reminder[];
+    },
+    enabled: !!user,
+  });
+}
+
 // 已經到時間、還沒完成的提醒——通知鈴鐺用。沒有背景 job 推播，查詢當下直接比對時間就好。
 export function useDueReminders() {
   const { user } = useUser();
