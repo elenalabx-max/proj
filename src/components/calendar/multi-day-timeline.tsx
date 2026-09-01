@@ -260,6 +260,12 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
     const left = `calc(${(slot.col / slot.cols) * 100}% + ${slot.col === 0 ? 4 : gapPx}px)`;
     const width = `calc(${100 / slot.cols}% - ${slot.col === 0 ? 4 + gapPx : gapPx * 2}px)`;
 
+    // 完成的（不管是 Task 本身還是重複的某一次）維持在原本的時間格位置，
+    // 只是變淡灰色＋刪除線，不整個消失——這樣才看得出「這時段本來排了什麼」。
+    const isCompleted = b.realTask ? b.realTask.status === "completed" : !!b.occurrence?.completed;
+    const bg = isCompleted ? "#e5e7eb" : b.color;
+    const fg = isCompleted ? "#6b7280" : getContrastTextColor(b.color);
+
     return (
       <div
         key={b.id}
@@ -275,9 +281,8 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
           height,
           left,
           width,
-          background: b.color,
-          color: getContrastTextColor(b.color),
-          opacity: b.occurrence?.completed ? 0.5 : 1,
+          background: bg,
+          color: fg,
           zIndex: overridePos?.blockId === b.id ? 10 : slot.col + 1,
         }}
       >
@@ -287,7 +292,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
               <path d="M2 8a6 6 0 0 1 10.2-4.2M2 8l1.5-2M2 8l2 1.3M14 8a6 6 0 0 1-10.2 4.2M14 8l-1.5 2M14 8l-2-1.3" />
             </svg>
           )}
-          <span className={`truncate font-semibold ${b.occurrence?.completed ? "line-through" : ""}`}>{b.title}</span>
+          <span className={`truncate font-semibold ${isCompleted ? "line-through" : ""}`}>{b.title}</span>
         </div>
         <div className="font-mono text-[10px] opacity-85">
           {b.scheduled_start?.slice(0, 5)}–{b.scheduled_end?.slice(0, 5)}
@@ -325,18 +330,24 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
                 <div key={col.key} className="flex flex-1 flex-col gap-1 border-l border-neutral-100 px-1.5 py-1.5 first:border-l-0">
                   {col.blocks
                     .filter((b) => b.is_all_day)
-                    .map((b) => (
-                      <button
-                        key={b.id}
-                        onClick={() =>
-                          b.realTask ? openTask(b.id) : setOccurrenceCompleted.mutate({ ...b.occurrence!, completed: !b.occurrence!.completed })
-                        }
-                        className="block w-full truncate rounded px-2 py-1 text-left text-[11px] font-semibold"
-                        style={{ background: b.color, color: getContrastTextColor(b.color), opacity: b.occurrence?.completed ? 0.5 : 1 }}
-                      >
-                        {b.title}
-                      </button>
-                    ))}
+                    .map((b) => {
+                      const isCompleted = b.realTask ? b.realTask.status === "completed" : !!b.occurrence?.completed;
+                      return (
+                        <button
+                          key={b.id}
+                          onClick={() =>
+                            b.realTask ? openTask(b.id) : setOccurrenceCompleted.mutate({ ...b.occurrence!, completed: !b.occurrence!.completed })
+                          }
+                          className={`block w-full truncate rounded px-2 py-1 text-left text-[11px] font-semibold ${isCompleted ? "line-through" : ""}`}
+                          style={{
+                            background: isCompleted ? "#e5e7eb" : b.color,
+                            color: isCompleted ? "#6b7280" : getContrastTextColor(b.color),
+                          }}
+                        >
+                          {b.title}
+                        </button>
+                      );
+                    })}
                 </div>
               ))}
             </div>

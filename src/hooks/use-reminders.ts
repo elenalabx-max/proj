@@ -21,7 +21,6 @@ export function useRemindersOnDate(date: string) {
         .select("*")
         .gte("remind_at", `${date}T00:00:00`)
         .lt("remind_at", `${date}T23:59:59.999`)
-        .is("completed_at", null)
         .order("remind_at", { ascending: true });
       if (error) throw error;
       return data as Reminder[];

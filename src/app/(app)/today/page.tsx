@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useTasksInRange } from "@/hooks/use-calendar-tasks";
 import { useTodosForDate, useCompleteTodo, useCreateTodo } from "@/hooks/use-todos";
 import { useReviewTasks } from "@/hooks/use-tasks";
-import { useRemindersOnDate } from "@/hooks/use-reminders";
+import { useRemindersOnDate, useToggleReminderDone } from "@/hooks/use-reminders";
 import { useTaskPanelStore } from "@/stores/task-panel";
 import { MultiDayTimeline } from "@/components/calendar/multi-day-timeline";
 import { QuadrantGrid } from "@/components/calendar/quadrant-grid";
@@ -67,6 +67,7 @@ export default function TodayPage() {
   const openTask = useTaskPanelStore((s) => s.open);
   const completeTodo = useCompleteTodo();
   const createTodo = useCreateTodo();
+  const toggleReminderDone = useToggleReminderDone();
 
   const [view, setView] = useState<"timeline" | "quadrant">("timeline");
   const [newTodoTitle, setNewTodoTitle] = useState("");
@@ -80,7 +81,7 @@ export default function TodayPage() {
   }
 
   const scheduled = (tasks ?? [])
-    .filter((t) => !t.is_all_day && t.scheduled_start && t.status !== "completed")
+    .filter((t) => !t.is_all_day && t.scheduled_start)
     .sort((a, b) => (a.scheduled_start ?? "").localeCompare(b.scheduled_start ?? ""));
 
   return (
@@ -96,7 +97,9 @@ export default function TodayPage() {
           {scheduled.map((t) => (
             <button key={t.id} onClick={() => openTask(t.id)} className="flex w-full items-start gap-1.5 text-left text-xs hover:underline">
               <span className="shrink-0 font-mono text-neutral-400">{t.scheduled_start?.slice(0, 5)}</span>
-              <span className="truncate text-neutral-800">{t.title}</span>
+              <span className={`truncate ${t.status === "completed" ? "text-neutral-400 line-through" : "text-neutral-800"}`}>
+                {t.title}
+              </span>
             </button>
           ))}
         </SummaryCard>
@@ -133,16 +136,22 @@ export default function TodayPage() {
         <SummaryCard icon={<ReminderGlyph />} title="提醒">
           {reminders?.length === 0 && <Empty />}
           {reminders?.map((r) => (
-            <button
-              key={r.id}
-              onClick={() => r.linked_type === "task" && r.linked_id && openTask(r.linked_id)}
-              className="flex w-full items-start gap-1.5 text-left text-xs hover:underline"
-            >
-              <span className="shrink-0 font-mono text-neutral-400">
-                {new Date(r.remind_at).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}
-              </span>
-              <span className="truncate text-neutral-800">{r.title ?? r.note ?? "提醒"}</span>
-            </button>
+            <div key={r.id} className="flex items-center gap-1.5 text-xs">
+              <button type="button" onClick={() => toggleReminderDone.mutate({ id: r.id, done: !r.completed_at })}>
+                <CheckboxIcon checked={!!r.completed_at} />
+              </button>
+              <button
+                onClick={() => r.linked_type === "task" && r.linked_id && openTask(r.linked_id)}
+                className="flex min-w-0 flex-1 items-start gap-1.5 text-left hover:underline"
+              >
+                <span className="shrink-0 font-mono text-neutral-400">
+                  {new Date(r.remind_at).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}
+                </span>
+                <span className={`truncate ${r.completed_at ? "text-neutral-400 line-through" : "text-neutral-800"}`}>
+                  {r.title ?? r.note ?? "提醒"}
+                </span>
+              </button>
+            </div>
           ))}
         </SummaryCard>
       </div>
