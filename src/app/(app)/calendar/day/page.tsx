@@ -4,12 +4,14 @@ import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { addDays, format } from "date-fns";
 import { DayTimeline } from "@/components/calendar/day-timeline";
+import { QuadrantGrid } from "@/components/calendar/quadrant-grid";
 import { parseISODate, toISODate } from "@/lib/date";
 
 function DayContent() {
   const searchParams = useSearchParams();
   const initial = searchParams.get("date");
   const [date, setDate] = useState(() => (initial ? parseISODate(initial) : new Date()));
+  const [view, setView] = useState<"timeline" | "quadrant">("timeline");
 
   return (
     <div className="space-y-3">
@@ -36,9 +38,23 @@ function DayContent() {
           {format(date, "yyyy / MM / dd")}
         </span>
         <span className="font-mono text-xs text-neutral-400">{toISODate(date)}</span>
+
+        <div className="ml-auto flex gap-1 rounded-md border border-neutral-200 bg-white p-0.5">
+          {(["timeline", "quadrant"] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={`rounded px-3 py-1 text-xs font-medium ${
+                view === v ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-100"
+              }`}
+            >
+              {v === "timeline" ? "時間軸" : "四象限"}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <DayTimeline date={date} />
+      {view === "timeline" ? <DayTimeline date={date} /> : <QuadrantGrid date={date} />}
     </div>
   );
 }
