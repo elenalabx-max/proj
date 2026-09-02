@@ -318,3 +318,18 @@ export function useArchiveTask() {
     onSuccess: () => invalidateTaskQueries(queryClient),
   });
 }
+
+// 從封存區「永久刪除」——真的 delete，不是再存一次 archived_at。只給封存區用，
+// 一般列表裡的「刪除」一律是封存（見 useArchiveTask）。
+export function useDeleteTaskForever() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("tasks").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => invalidateTaskQueries(queryClient),
+  });
+}

@@ -143,3 +143,20 @@ export function useArchiveProject() {
     },
   });
 }
+
+// 從封存區「永久刪除」——真的 delete，不是再存一次 archived_at。
+// project_id 外鍵都是 on delete set null，掛在這個 Project 底下的 Task/Todo 不會被牽連刪掉。
+export function useDeleteProjectForever() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("projects").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+}

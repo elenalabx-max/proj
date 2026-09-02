@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useArchivedTasks, useRestoreTask } from "@/hooks/use-tasks";
-import { useArchivedProjects, useRestoreProject } from "@/hooks/use-projects";
-import { useArchivedTodos, useRestoreTodo } from "@/hooks/use-todos";
+import { useArchivedTasks, useRestoreTask, useDeleteTaskForever } from "@/hooks/use-tasks";
+import { useArchivedProjects, useRestoreProject, useDeleteProjectForever } from "@/hooks/use-projects";
+import { useArchivedTodos, useRestoreTodo, useDeleteTodoForever } from "@/hooks/use-todos";
 import { CheckboxIcon } from "@/components/ui/checkbox";
 
 type TabKey = "projects" | "tasks" | "todos";
@@ -16,14 +16,41 @@ export default function ArchivePage() {
   const restoreTask = useRestoreTask();
   const restoreProject = useRestoreProject();
   const restoreTodo = useRestoreTodo();
+  const deleteTaskForever = useDeleteTaskForever();
+  const deleteProjectForever = useDeleteProjectForever();
+  const deleteTodoForever = useDeleteTodoForever();
 
   const [tab, setTab] = useState<TabKey>("projects");
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  const tabs: { key: TabKey; label: string; items: ArchiveItem[]; restore: (id: string) => Promise<unknown> }[] = [
-    { key: "projects", label: "Projects", items: (projects ?? []).map((p) => ({ id: p.id, title: p.name })), restore: (id) => restoreProject.mutateAsync(id) },
-    { key: "tasks", label: "Tasks", items: (tasks ?? []).map((t) => ({ id: t.id, title: t.title })), restore: (id) => restoreTask.mutateAsync(id) },
-    { key: "todos", label: "Todos", items: (todos ?? []).map((t) => ({ id: t.id, title: t.title })), restore: (id) => restoreTodo.mutateAsync(id) },
+  const tabs: {
+    key: TabKey;
+    label: string;
+    items: ArchiveItem[];
+    restore: (id: string) => Promise<unknown>;
+    deleteForever: (id: string) => Promise<unknown>;
+  }[] = [
+    {
+      key: "projects",
+      label: "Projects",
+      items: (projects ?? []).map((p) => ({ id: p.id, title: p.name })),
+      restore: (id) => restoreProject.mutateAsync(id),
+      deleteForever: (id) => deleteProjectForever.mutateAsync(id),
+    },
+    {
+      key: "tasks",
+      label: "Tasks",
+      items: (tasks ?? []).map((t) => ({ id: t.id, title: t.title })),
+      restore: (id) => restoreTask.mutateAsync(id),
+      deleteForever: (id) => deleteTaskForever.mutateAsync(id),
+    },
+    {
+      key: "todos",
+      label: "Todos",
+      items: (todos ?? []).map((t) => ({ id: t.id, title: t.title })),
+      restore: (id) => restoreTodo.mutateAsync(id),
+      deleteForever: (id) => deleteTodoForever.mutateAsync(id),
+    },
   ];
 
   const current = tabs.find((t) => t.key === tab)!;
@@ -45,6 +72,12 @@ export default function ArchivePage() {
 
   async function restoreSelected() {
     await Promise.all([...selected].map((id) => current.restore(id)));
+    setSelected(new Set());
+  }
+
+  async function deleteSelectedForever() {
+    if (!window.confirm(`永久刪除選取的 ${selected.size} 項？這個動作沒辦法復原。`)) return;
+    await Promise.all([...selected].map((id) => current.deleteForever(id)));
     setSelected(new Set());
   }
 
@@ -80,6 +113,12 @@ export default function ArchivePage() {
             className="rounded border border-neutral-300 bg-white px-2 py-1 text-xs hover:bg-neutral-100"
           >
             復原選取的
+          </button>
+          <button
+            onClick={deleteSelectedForever}
+            className="rounded border border-red-200 bg-white px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+          >
+            永久刪除選取的
           </button>
           <button onClick={() => setSelected(new Set())} className="ml-auto text-xs text-neutral-400 hover:text-neutral-700">
             取消選取
