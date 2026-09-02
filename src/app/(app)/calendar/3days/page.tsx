@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { addDays, format } from "date-fns";
 import { MultiDayTimeline } from "@/components/calendar/multi-day-timeline";
 import { QuadrantGrid } from "@/components/calendar/quadrant-grid";
+import { useIsMobile } from "@/hooks/use-is-mobile";
 import { parseISODate, toISODate } from "@/lib/date";
 
 function ThreeDaysContent() {
@@ -12,8 +13,11 @@ function ThreeDaysContent() {
   const initial = searchParams.get("date");
   const [referenceDate, setReferenceDate] = useState(() => (initial ? parseISODate(initial) : new Date()));
   const [view, setView] = useState<"timeline" | "quadrant">("timeline");
+  const isMobile = useIsMobile();
 
-  const dates = [0, 1, 2].map((n) => addDays(referenceDate, n));
+  // 手機螢幕太窄，3 天 x Work|Personal 至少 6 欄會擠成一團——收成只顯示當天，
+  // 左右箭頭一樣是一天一天翻，行為不變。
+  const dates = isMobile ? [referenceDate] : [0, 1, 2].map((n) => addDays(referenceDate, n));
 
   return (
     <div className="space-y-3">
@@ -37,7 +41,9 @@ function ThreeDaysContent() {
           →
         </button>
         <span className="ml-2 text-sm font-semibold text-neutral-900">
-          {format(dates[0], "yyyy / MM / dd")} – {format(dates[2], "MM / dd")}
+          {isMobile
+            ? format(dates[0], "yyyy / MM / dd")
+            : `${format(dates[0], "yyyy / MM / dd")} – ${format(dates[dates.length - 1], "MM / dd")}`}
         </span>
         <span className="font-mono text-xs text-neutral-400">{toISODate(referenceDate)}</span>
 

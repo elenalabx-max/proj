@@ -98,7 +98,7 @@ export function WeekGrid({ dates }: { dates: Date[] }) {
   const labels = weekdayLabels(1);
 
   return (
-    <div className="grid grid-cols-7 gap-2">
+    <div className={`grid gap-2 ${dates.length === 1 ? "grid-cols-1" : "grid-cols-7"}`}>
       {dates.map((date, i) => {
         const iso = toISODate(date);
         const dayItems = items.filter((it) => it.date === iso).sort((a, b) => a.sortKey.localeCompare(b.sortKey));

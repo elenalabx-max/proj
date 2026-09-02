@@ -1,8 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { useArchivedTasks, useRestoreTask } from "@/hooks/use-tasks";
 import { useArchivedProjects, useRestoreProject } from "@/hooks/use-projects";
 import { useArchivedTodos, useRestoreTodo } from "@/hooks/use-todos";
+import { CheckboxIcon } from "@/components/ui/checkbox";
+
+type TabKey = "projects" | "tasks" | "todos";
+type ArchiveItem = { id: string; title: string };
 
 export default function ArchivePage() {
   const { data: tasks } = useArchivedTasks();
@@ -12,10 +17,39 @@ export default function ArchivePage() {
   const restoreProject = useRestoreProject();
   const restoreTodo = useRestoreTodo();
 
-  const isEmpty = !tasks?.length && !projects?.length && !todos?.length;
+  const [tab, setTab] = useState<TabKey>("projects");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const tabs: { key: TabKey; label: string; items: ArchiveItem[]; restore: (id: string) => Promise<unknown> }[] = [
+    { key: "projects", label: "Projects", items: (projects ?? []).map((p) => ({ id: p.id, title: p.name })), restore: (id) => restoreProject.mutateAsync(id) },
+    { key: "tasks", label: "Tasks", items: (tasks ?? []).map((t) => ({ id: t.id, title: t.title })), restore: (id) => restoreTask.mutateAsync(id) },
+    { key: "todos", label: "Todos", items: (todos ?? []).map((t) => ({ id: t.id, title: t.title })), restore: (id) => restoreTodo.mutateAsync(id) },
+  ];
+
+  const current = tabs.find((t) => t.key === tab)!;
+  const totalArchived = tabs.reduce((sum, t) => sum + t.items.length, 0);
+
+  function switchTab(key: TabKey) {
+    setTab(key);
+    setSelected(new Set());
+  }
+
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function restoreSelected() {
+    await Promise.all([...selected].map((id) => current.restore(id)));
+    setSelected(new Set());
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
         <h1 className="text-xl font-semibold text-neutral-900">封存 Archive</h1>
         <p className="mt-1 text-sm text-neutral-500">
@@ -23,48 +57,75 @@ export default function ArchivePage() {
         </p>
       </div>
 
-      {isEmpty && <p className="text-sm text-neutral-400">目前沒有封存的項目。</p>}
+      <div className="flex w-fit gap-1 rounded-md border border-neutral-200 bg-white p-0.5">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => switchTab(t.key)}
+            className={`rounded px-3 py-1 text-sm font-medium ${
+              tab === t.key ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-100"
+            }`}
+          >
+            {t.label}
+            {!!t.items.length && <span className="ml-1 text-xs opacity-70">({t.items.length})</span>}
+          </button>
+        ))}
+      </div>
 
-      {!!projects?.length && (
-        <ArchiveSection title="Projects">
-          {projects.map((p) => (
-            <ArchiveRow key={p.id} title={p.name} onRestore={() => restoreProject.mutate(p.id)} />
-          ))}
-        </ArchiveSection>
+      {selected.size > 0 && (
+        <div className="flex items-center gap-2 rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm">
+          <span className="font-medium text-neutral-700">已選 {selected.size} 項</span>
+          <button
+            onClick={restoreSelected}
+            className="rounded border border-neutral-300 bg-white px-2 py-1 text-xs hover:bg-neutral-100"
+          >
+            復原選取的
+          </button>
+          <button onClick={() => setSelected(new Set())} className="ml-auto text-xs text-neutral-400 hover:text-neutral-700">
+            取消選取
+          </button>
+        </div>
       )}
 
-      {!!tasks?.length && (
-        <ArchiveSection title="Tasks">
-          {tasks.map((t) => (
-            <ArchiveRow key={t.id} title={t.title} onRestore={() => restoreTask.mutate(t.id)} />
-          ))}
-        </ArchiveSection>
+      {totalArchived === 0 && <p className="text-sm text-neutral-400">目前沒有封存的項目。</p>}
+      {totalArchived > 0 && current.items.length === 0 && (
+        <p className="text-sm text-neutral-400">這個分類目前沒有封存的項目。</p>
       )}
 
-      {!!todos?.length && (
-        <ArchiveSection title="Todos">
-          {todos.map((t) => (
-            <ArchiveRow key={t.id} title={t.title} onRestore={() => restoreTodo.mutate(t.id)} />
+      {current.items.length > 0 && (
+        <div className="divide-y divide-neutral-100 rounded-lg border border-neutral-200 bg-white">
+          {current.items.map((item) => (
+            <ArchiveRow
+              key={item.id}
+              title={item.title}
+              checked={selected.has(item.id)}
+              onToggle={() => toggle(item.id)}
+              onRestore={() => current.restore(item.id)}
+            />
           ))}
-        </ArchiveSection>
+        </div>
       )}
     </div>
   );
 }
 
-function ArchiveSection({ title, children }: { title: string; children: React.ReactNode }) {
+function ArchiveRow({
+  title,
+  checked,
+  onToggle,
+  onRestore,
+}: {
+  title: string;
+  checked: boolean;
+  onToggle: () => void;
+  onRestore: () => void;
+}) {
   return (
-    <section className="space-y-2">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-400">{title}</h2>
-      <div className="divide-y divide-neutral-100 rounded-lg border border-neutral-200 bg-white">{children}</div>
-    </section>
-  );
-}
-
-function ArchiveRow({ title, onRestore }: { title: string; onRestore: () => void }) {
-  return (
-    <div className="flex items-center justify-between px-3 py-2 text-sm">
-      <span className="truncate text-neutral-700">{title}</span>
+    <div className="flex items-center gap-3 px-3 py-2 text-sm">
+      <button type="button" role="checkbox" aria-checked={checked} onClick={onToggle}>
+        <CheckboxIcon checked={checked} />
+      </button>
+      <span className="min-w-0 flex-1 truncate text-neutral-700">{title}</span>
       <button onClick={onRestore} className="shrink-0 text-xs font-medium text-neutral-500 hover:text-neutral-900 hover:underline">
         復原
       </button>
