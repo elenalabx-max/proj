@@ -1,14 +1,16 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useMemo, useState } from "react";
 import { useProject } from "@/hooks/use-projects";
 import { useCreateTask, useProjectTasks } from "@/hooks/use-tasks";
 import { useTaskPanelStore } from "@/stores/task-panel";
 import { ProjectStatsPanel } from "@/components/projects/project-stats-panel";
-import { ProjectTaskBoard } from "@/components/projects/project-task-board";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { getContrastTextColor } from "@/lib/colors";
-import { TASK_STATUS_LABEL, projectStatusLabel, type Project, type Task } from "@/lib/types";
+import { TASK_STATUS_LABEL, projectStatusLabel, type Project, type Task, type TaskStatus } from "@/lib/types";
+
+const TASK_STATUS_ORDER = Object.keys(TASK_STATUS_LABEL) as TaskStatus[];
+type SortKey = "created_desc" | "created_asc" | "status" | "title";
 
 export default function ProjectDetailPage({
   params,
@@ -33,10 +35,24 @@ function ProjectPageBody({ project, tasks }: { project: Project; tasks: Task[] }
 
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [editOpen, setEditOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<TaskStatus | "all">("all");
+  const [sortKey, setSortKey] = useState<SortKey>("created_desc");
 
   const completed = tasks.filter((t) => t.status === "completed").length;
   const total = tasks.length;
   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+  const visibleTasks = useMemo(() => {
+    const filtered = statusFilter === "all" ? tasks : tasks.filter((t) => t.status === statusFilter);
+    const sorted = [...filtered];
+    sorted.sort((a, b) => {
+      if (sortKey === "created_desc") return b.created_at.localeCompare(a.created_at);
+      if (sortKey === "created_asc") return a.created_at.localeCompare(b.created_at);
+      if (sortKey === "title") return a.title.localeCompare(b.title);
+      return TASK_STATUS_ORDER.indexOf(a.status) - TASK_STATUS_ORDER.indexOf(b.status);
+    });
+    return sorted;
+  }, [tasks, statusFilter, sortKey]);
 
   function handleAddTask(e: React.FormEvent) {
     e.preventDefault();
@@ -100,12 +116,53 @@ function ProjectPageBody({ project, tasks }: { project: Project; tasks: Task[] }
         </div>
       </div>
 
+      <ProjectStatsPanel projectId={project.id} />
+
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-neutral-900">Tasks</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-neutral-900">Tasks</h2>
+          <div className="flex gap-1.5">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as TaskStatus | "all")}
+              className="rounded-md border border-neutral-300 px-1.5 py-1 text-xs text-neutral-600"
+            >
+              <option value="all">全部狀態</option>
+              {TASK_STATUS_ORDER.map((s) => (
+                <option key={s} value={s}>
+                  {TASK_STATUS_LABEL[s]}
+                </option>
+              ))}
+            </select>
+            <select
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value as SortKey)}
+              className="rounded-md border border-neutral-300 px-1.5 py-1 text-xs text-neutral-600"
+            >
+              <option value="created_desc">建立時間（新到舊）</option>
+              <option value="created_asc">建立時間（舊到新）</option>
+              <option value="status">狀態</option>
+              <option value="title">標題</option>
+            </select>
+          </div>
+        </div>
+
+        <form onSubmit={handleAddTask}>
+          <input
+            value={newTaskTitle}
+            onChange={(e) => setNewTaskTitle(e.target.value)}
+            placeholder="+ 新增 Task…按 Enter"
+            className="w-full rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm outline-none focus:border-neutral-400 focus:bg-white"
+          />
+        </form>
 
         <div className="divide-y divide-neutral-100 rounded-lg border border-neutral-200 bg-white">
-          {tasks.length === 0 && <p className="px-4 py-3 text-sm text-neutral-400">還沒有 Task。</p>}
-          {tasks.map((t) => (
+          {visibleTasks.length === 0 && (
+            <p className="px-4 py-3 text-sm text-neutral-400">
+              {tasks.length === 0 ? "還沒有 Task。" : "沒有符合篩選條件的 Task。"}
+            </p>
+          )}
+          {visibleTasks.map((t) => (
             <button
               key={t.id}
               onClick={() => openTask(t.id)}
@@ -123,19 +180,7 @@ function ProjectPageBody({ project, tasks }: { project: Project; tasks: Task[] }
             </button>
           ))}
         </div>
-
-        <form onSubmit={handleAddTask}>
-          <input
-            value={newTaskTitle}
-            onChange={(e) => setNewTaskTitle(e.target.value)}
-            placeholder="+ 新增 Task…按 Enter"
-            className="w-full rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm outline-none focus:border-neutral-400 focus:bg-white"
-          />
-        </form>
       </section>
-
-      <ProjectStatsPanel projectId={project.id} />
-      <ProjectTaskBoard tasks={tasks} />
 
       {editOpen && <ProjectFormDialog project={project} onClose={() => setEditOpen(false)} />}
     </div>
