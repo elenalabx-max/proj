@@ -47,9 +47,10 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   };
 }
 
-// Task 顯示顏色的繼承規則（見規劃書第五節）：
-// Personal Task → Personal 預設色
-// Work Task → Project Color；沒有 Project → Work fallback 色
+// Task 顯示顏色的繼承規則：
+// 有掛 Project → Project 自己的顏色（Personal／Work 都一樣，Project 建立/編輯時
+// 本來就能選顏色，calendar 應該要照那個顏色畫，不是每個 Personal 都畫成同一色）
+// 沒掛 Project → Personal 預設色／Work fallback 色，依 Area 類型決定
 export function resolveTaskColor(params: {
   areaType: "personal" | "work" | null | undefined;
   projectColor?: string | null;
@@ -57,8 +58,6 @@ export function resolveTaskColor(params: {
   workFallbackColor: string;
 }): string {
   const { areaType, projectColor, personalDefaultColor, workFallbackColor } = params;
-  if (areaType === "work") {
-    return projectColor || workFallbackColor;
-  }
-  return personalDefaultColor;
+  if (projectColor) return projectColor;
+  return areaType === "work" ? workFallbackColor : personalDefaultColor;
 }

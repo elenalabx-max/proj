@@ -88,18 +88,23 @@ export function MonthGrid({ reference, dates }: { reference: Date; dates: Date[]
                 {date.getDate()}
               </div>
               <div className="space-y-0.5">
-                {shown.map((i) => (
-                  <div key={`${i.kind}:${i.id}`} className="flex items-center gap-1 truncate text-[10px] text-neutral-600">
-                    {i.kind === "todo" ? (
-                      <TodoDotIcon className="h-2.5 w-2.5 shrink-0" style={{ color: i.color }} />
-                    ) : i.kind === "reminder" ? (
-                      <ReminderDotIcon className="h-2.5 w-2.5 shrink-0" style={{ color: i.color }} />
-                    ) : (
+                {shown.map((i) =>
+                  i.kind === "task" ? (
+                    <div key={`${i.kind}:${i.id}`} className="flex items-center gap-1 truncate text-[10px] text-neutral-600">
                       <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: i.color }} />
-                    )}
-                    <span className="truncate">{i.title}</span>
-                  </div>
-                ))}
+                      <span className="truncate">{i.title}</span>
+                    </div>
+                  ) : (
+                    <div key={`${i.kind}:${i.id}`} className="flex items-center gap-1 truncate text-[10px]" style={{ color: i.color }}>
+                      {i.kind === "todo" ? (
+                        <TodoDotIcon className="h-2.5 w-2.5 shrink-0" />
+                      ) : (
+                        <ReminderDotIcon className="h-2.5 w-2.5 shrink-0" />
+                      )}
+                      <span className="truncate">{i.title}</span>
+                    </div>
+                  ),
+                )}
                 {extra > 0 && <div className="text-[10px] text-neutral-400">+{extra} more</div>}
               </div>
             </button>

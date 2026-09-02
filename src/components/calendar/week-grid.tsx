@@ -128,11 +128,12 @@ export function WeekGrid({ dates }: { dates: Date[] }) {
                     <button
                       key={`${it.kind}:${it.id}`}
                       onClick={it.onOpen}
-                      className="flex w-full items-center gap-1.5 truncate rounded px-1.5 py-1 text-left text-[11px] font-medium text-neutral-800 hover:bg-neutral-50"
+                      className="flex w-full items-center gap-1.5 truncate rounded px-1.5 py-1 text-left text-[11px] font-medium hover:bg-neutral-50"
+                      style={{ color: it.color }}
                     >
-                      <Icon className="h-3 w-3 shrink-0" style={{ color: it.color }} />
+                      <Icon className="h-3 w-3 shrink-0" />
                       <span className="truncate">
-                        {it.timeLabel && <span className="font-mono text-neutral-400">{it.timeLabel} </span>}
+                        {it.timeLabel && <span className="font-mono opacity-70">{it.timeLabel} </span>}
                         {it.title}
                       </span>
                     </button>
