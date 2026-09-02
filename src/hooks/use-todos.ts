@@ -148,6 +148,19 @@ export function useRestoreTodo() {
   });
 }
 
+export function useArchiveTodo() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("todos").update({ archived_at: new Date().toISOString() }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => invalidateTodoQueries(queryClient),
+  });
+}
+
 function invalidateTodoQueries(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: ["todos"] });
   queryClient.invalidateQueries({ queryKey: ["todo"] });

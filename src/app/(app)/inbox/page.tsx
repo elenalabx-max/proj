@@ -216,22 +216,9 @@ function InboxRow({
   projects: { id: string; name: string }[];
 }) {
   const [mode, setMode] = useState<"date" | "project" | "forget" | null>(null);
-  const [editingTitle, setEditingTitle] = useState(false);
-  const [titleDraft, setTitleDraft] = useState(row.title);
 
   const openTask = useTaskPanelStore((s) => s.open);
   const openTodo = useTodoPanelStore((s) => s.open);
-  const updateTodo = useUpdateTodo();
-
-  function commitTitle() {
-    setEditingTitle(false);
-    const next = titleDraft.trim();
-    if (row.kind === "todo" && next && next !== row.title) {
-      updateTodo.mutate({ id: row.id, patch: { title: next } });
-    } else {
-      setTitleDraft(row.title);
-    }
-  }
 
   return (
     <div className="flex flex-col gap-1.5 px-4 py-2.5">
@@ -240,44 +227,17 @@ function InboxRow({
           <CheckboxIcon checked={checked} />
         </button>
 
-        {row.kind === "task" ? (
-          <button
-            onClick={() => openTask(row.id)}
-            className="flex-1 truncate text-left text-sm text-neutral-900 hover:underline"
-            title="點擊開啟 Task 詳細內容"
-          >
-            {row.title}
-          </button>
-        ) : editingTitle ? (
-          <input
-            autoFocus
-            value={titleDraft}
-            onChange={(e) => setTitleDraft(e.target.value)}
-            onBlur={commitTitle}
-            onKeyDown={(e) => e.key === "Enter" && commitTitle()}
-            className="flex-1 rounded border border-neutral-300 px-1.5 py-0.5 text-sm outline-none"
-          />
-        ) : (
-          <button
-            onClick={() => setEditingTitle(true)}
-            className="flex-1 truncate text-left text-sm text-neutral-900 hover:underline"
-            title="點擊重新命名"
-          >
-            {row.title}
-          </button>
-        )}
+        <button
+          onClick={() => (row.kind === "task" ? openTask(row.id) : openTodo(row.id))}
+          className="flex-1 truncate text-left text-sm text-neutral-900 hover:underline"
+          title={`點擊開啟 ${row.kind === "task" ? "Task" : "Todo"} 詳細內容`}
+        >
+          {row.title}
+        </button>
 
-        {row.kind === "todo" ? (
-          <button
-            onClick={() => openTodo(row.id)}
-            title="Area／Project／重複…等細節設定"
-            className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-500 hover:bg-neutral-200"
-          >
-            Todo
-          </button>
-        ) : (
-          <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-500">Task</span>
-        )}
+        <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-500">
+          {row.kind === "todo" ? "Todo" : "Task"}
+        </span>
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5 pl-7 text-xs text-neutral-500">

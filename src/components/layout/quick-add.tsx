@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useCreateTodo } from "@/hooks/use-todos";
 import { useCreateReminder } from "@/hooks/use-reminders";
 import { useProjects } from "@/hooks/use-projects";
+import { TimePicker } from "@/components/ui/time-picker";
 
 type Mode = "todo" | "reminder";
 
@@ -15,7 +16,8 @@ export function QuickAdd() {
   const [mode, setMode] = useState<Mode>("todo");
   const [value, setValue] = useState("");
   const [pendingTitle, setPendingTitle] = useState<string | null>(null);
-  const [remindAt, setRemindAt] = useState("");
+  const [remindDate, setRemindDate] = useState("");
+  const [remindTime, setRemindTime] = useState("");
   const [projectId, setProjectId] = useState("");
   const createTodo = useCreateTodo();
   const createReminder = useCreateReminder();
@@ -36,16 +38,17 @@ export function QuickAdd() {
 
   function handleCreateReminder(e: React.FormEvent) {
     e.preventDefault();
-    if (!remindAt || !pendingTitle) return;
+    if (!remindDate || !remindTime || !pendingTitle) return;
     createReminder.mutate({
       linkedType: projectId ? "project" : "standalone",
       linkedId: projectId || undefined,
-      remindAt: new Date(remindAt).toISOString(),
+      remindAt: new Date(`${remindDate}T${remindTime}`).toISOString(),
       title: pendingTitle,
     });
     setPendingTitle(null);
     setValue("");
-    setRemindAt("");
+    setRemindDate("");
+    setRemindTime("");
     setProjectId("");
   }
 
@@ -54,13 +57,14 @@ export function QuickAdd() {
       <form onSubmit={handleCreateReminder} className="flex flex-1 max-w-md items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm">
         <span className="shrink-0 truncate text-neutral-600">「{pendingTitle}」</span>
         <input
-          type="datetime-local"
+          type="date"
           required
           autoFocus
-          value={remindAt}
-          onChange={(e) => setRemindAt(e.target.value)}
+          value={remindDate}
+          onChange={(e) => setRemindDate(e.target.value)}
           className="shrink-0 text-xs outline-none"
         />
+        <TimePicker value={remindTime || null} onChange={setRemindTime} className="w-24 shrink-0 text-xs" />
         <select
           value={projectId}
           onChange={(e) => setProjectId(e.target.value)}

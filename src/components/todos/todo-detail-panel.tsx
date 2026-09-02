@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTodoPanelStore } from "@/stores/todo-panel";
-import { useTodo, useUpdateTodo, useCompleteTodo, useConvertTodoToTask } from "@/hooks/use-todos";
+import { useTodo, useUpdateTodo, useCompleteTodo, useConvertTodoToTask, useArchiveTodo } from "@/hooks/use-todos";
 import { useTaskPanelStore } from "@/stores/task-panel";
 import { useAreas } from "@/hooks/use-areas";
 import { useProjects } from "@/hooks/use-projects";
@@ -43,6 +43,7 @@ function TodoPanelBody({
   const updateTodo = useUpdateTodo();
   const completeTodo = useCompleteTodo();
   const convertTodo = useConvertTodoToTask();
+  const archiveTodo = useArchiveTodo();
   const openTask = useTaskPanelStore((s) => s.open);
 
   const [title, setTitle] = useState(todo.title);
@@ -60,9 +61,24 @@ function TodoPanelBody({
     <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm space-y-4 rounded-lg border border-neutral-200 bg-white p-5 shadow-lg">
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Todo</span>
-        <button onClick={close} className="text-sm text-neutral-400 hover:text-neutral-700">
-          關閉
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              archiveTodo.mutate(todo.id);
+              close();
+            }}
+            title="會封存而不是永久刪除，可從 Settings → 封存 復原"
+            className="flex items-center gap-1 text-xs font-medium text-red-500 hover:underline"
+          >
+            <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 4.5h10M6.5 4.5V3a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1.5M4 4.5 4.6 13a1 1 0 0 0 1 .9h4.8a1 1 0 0 0 1-.9l.6-8.5" />
+            </svg>
+            刪除
+          </button>
+          <button onClick={close} className="text-sm text-neutral-400 hover:text-neutral-700">
+            關閉
+          </button>
+        </div>
       </div>
 
       <input
@@ -78,6 +94,19 @@ function TodoPanelBody({
           onChange={() => completeTodo.mutate({ id: todo.id, completed: !todo.completed_at })}
           label="完成"
         />
+
+        <div className="flex gap-4">
+          <Checkbox
+            checked={todo.important}
+            onChange={() => updateTodo.mutate({ id: todo.id, patch: { important: !todo.important } })}
+            label="重要"
+          />
+          <Checkbox
+            checked={todo.urgent}
+            onChange={() => updateTodo.mutate({ id: todo.id, patch: { urgent: !todo.urgent } })}
+            label="緊急"
+          />
+        </div>
 
         <div>
           <label className="mb-1 block text-xs font-medium text-neutral-500">Area</label>

@@ -71,6 +71,8 @@ export type Todo = {
   date: string | null;
   forgotten_until: string | null;
   recurrence_rule_id: string | null;
+  important: boolean;
+  urgent: boolean;
   completed_at: string | null;
   created_at: string;
   updated_at: string;
@@ -100,6 +102,8 @@ export type Reminder = {
   title: string | null;
   note: string | null;
   recurrence_rule_id: string | null;
+  important: boolean;
+  urgent: boolean;
   completed_at: string | null;
   created_at: string;
 };

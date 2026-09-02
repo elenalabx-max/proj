@@ -74,6 +74,19 @@ function ReminderPanelBody({
       />
 
       <div className="space-y-3 text-sm">
+        <div className="flex gap-4">
+          <Checkbox
+            checked={reminder.important}
+            onChange={() => updateReminder.mutate({ id: reminder.id, patch: { important: !reminder.important } })}
+            label="重要"
+          />
+          <Checkbox
+            checked={reminder.urgent}
+            onChange={() => updateReminder.mutate({ id: reminder.id, patch: { urgent: !reminder.urgent } })}
+            label="緊急"
+          />
+        </div>
+
         <div>
           <label className="mb-1 block text-xs font-medium text-neutral-500">Project</label>
           <select
