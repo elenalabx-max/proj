@@ -163,3 +163,11 @@ export const PROJECT_STATUS_LABEL: Record<ProjectStatus, string> = {
   completed: "已完成",
   archived: "已封存",
 };
+
+// 還沒填執行期間的「進行中」Project，顯示上當作「尚未開始」——不是另一個
+// 真的存進 DB 的狀態，只是還沒排執行期間時的顯示文字，一旦填了起訖日期
+// 就會自動變回「進行中」，不用手動切換。
+export function projectStatusLabel(project: Pick<Project, "status" | "start_date" | "due_date">): string {
+  if (project.status === "active" && !project.start_date && !project.due_date) return "尚未開始";
+  return PROJECT_STATUS_LABEL[project.status];
+}

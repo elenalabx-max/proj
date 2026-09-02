@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useAreas } from "@/hooks/use-areas";
 import { useProjects } from "@/hooks/use-projects";
 import { useTaskCountsByProject } from "@/hooks/use-tasks";
-import { PROJECT_STATUS_LABEL } from "@/lib/types";
+import { projectStatusLabel } from "@/lib/types";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import type { AreaType } from "@/lib/types";
 
@@ -68,8 +68,9 @@ function ProjectsContent() {
                 <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: p.color }} />
                 <span className="truncate text-sm font-semibold text-neutral-900">{p.name}</span>
               </div>
-              <div className="mt-2 flex items-center gap-2 text-xs text-neutral-500">
-                <span className="rounded bg-neutral-100 px-1.5 py-0.5">{PROJECT_STATUS_LABEL[p.status]}</span>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+                <span className="rounded bg-neutral-100 px-1.5 py-0.5">{projectStatusLabel(p)}</span>
+                {p.category && <span className="rounded bg-neutral-100 px-1.5 py-0.5">{p.category}</span>}
                 {c && (
                   <span>
                     {c.completed}/{c.total} 完成

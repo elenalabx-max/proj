@@ -49,6 +49,9 @@ export function Sidebar() {
   const mobileOpen = useSidebarStore((s) => s.mobileOpen);
   const close = useSidebarStore((s) => s.close);
 
+  const personalProjects = (projects ?? []).filter(
+    (p) => areas?.find((a) => a.id === p.area_id)?.type === "personal",
+  );
   const workProjects = (projects ?? []).filter(
     (p) => areas?.find((a) => a.id === p.area_id)?.type === "work",
   );
@@ -94,11 +97,20 @@ export function Sidebar() {
         <div className="flex flex-col gap-0.5 border-t border-neutral-200 pt-3">
           <Link
             href="/projects?area=personal"
-            className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium text-neutral-600 hover:bg-neutral-900/5"
+            className="px-2.5 py-1 text-[13px] font-semibold text-neutral-900 hover:underline"
           >
-            <span className="h-2 w-2 shrink-0 rounded-full bg-[#9a86ac]" />
             Personal
           </Link>
+          {personalProjects.map((p) => (
+            <Link
+              key={p.id}
+              href={`/projects/${p.id}`}
+              className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium text-neutral-600 hover:bg-neutral-900/5"
+            >
+              <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: p.color }} />
+              <span className="truncate">{p.name}</span>
+            </Link>
+          ))}
         </div>
 
         <div className="flex flex-col gap-0.5 border-t border-neutral-200 pt-3">

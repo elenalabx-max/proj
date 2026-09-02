@@ -1,16 +1,14 @@
 "use client";
 
 import { use, useState } from "react";
-import { useProject, useUpdateProject } from "@/hooks/use-projects";
+import { useProject } from "@/hooks/use-projects";
 import { useCreateTask, useProjectTasks } from "@/hooks/use-tasks";
 import { useTaskPanelStore } from "@/stores/task-panel";
-import { ColorPicker } from "@/components/ui/color-picker";
 import { ProjectStatsPanel } from "@/components/projects/project-stats-panel";
 import { ProjectTaskBoard } from "@/components/projects/project-task-board";
+import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { getContrastTextColor } from "@/lib/colors";
-import { PROJECT_STATUS_LABEL, TASK_STATUS_LABEL, type Project, type ProjectStatus, type Task } from "@/lib/types";
-
-const STATUS_OPTIONS = Object.keys(PROJECT_STATUS_LABEL) as ProjectStatus[];
+import { TASK_STATUS_LABEL, projectStatusLabel, type Project, type Task } from "@/lib/types";
 
 export default function ProjectDetailPage({
   params,
@@ -25,20 +23,16 @@ export default function ProjectDetailPage({
     return <p className="text-sm text-neutral-500">載入中…</p>;
   }
 
-  // 用 project.id 當 key，切換不同 Project 時整個重新掛載，
-  // 避免類別/業主這種緩衝中的輸入框留著上一個 Project 的內容。
+  // 用 project.id 當 key，切換不同 Project 時整個重新掛載。
   return <ProjectPageBody key={project.id} project={project} tasks={tasks ?? []} />;
 }
 
 function ProjectPageBody({ project, tasks }: { project: Project; tasks: Task[] }) {
-  const updateProject = useUpdateProject();
   const createTask = useCreateTask();
   const openTask = useTaskPanelStore((s) => s.open);
 
   const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [colorOpen, setColorOpen] = useState(false);
-  const [category, setCategory] = useState(project.category ?? "");
-  const [owner, setOwner] = useState(project.owner ?? "");
+  const [editOpen, setEditOpen] = useState(false);
 
   const completed = tasks.filter((t) => t.status === "completed").length;
   const total = tasks.length;
@@ -55,80 +49,42 @@ function ProjectPageBody({ project, tasks }: { project: Project; tasks: Task[] }
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setColorOpen((v) => !v)}
-            className="h-3.5 w-3.5 shrink-0 rounded-full"
-            style={{ background: project.color }}
-            aria-label="更改顏色"
-          />
-          <h1 className="text-xl font-semibold text-neutral-900">{project.name}</h1>
-        </div>
-        {colorOpen && (
-          <div className="mt-2">
-            <ColorPicker
-              value={project.color}
-              onChange={(color) => updateProject.mutate({ id: project.id, patch: { color } })}
-            />
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="h-3.5 w-3.5 shrink-0 rounded-full" style={{ background: project.color }} />
+            <h1 className="text-xl font-semibold text-neutral-900">{project.name}</h1>
           </div>
-        )}
+          <button
+            onClick={() => setEditOpen(true)}
+            className="shrink-0 rounded-md border border-neutral-300 px-2.5 py-1 text-xs font-medium text-neutral-600 hover:bg-neutral-50"
+          >
+            編輯
+          </button>
+        </div>
 
         <div className="mt-4 space-y-2.5 text-sm">
           <PropertyRow label="狀態">
-            <select
-              value={project.status}
-              onChange={(e) =>
-                updateProject.mutate({
-                  id: project.id,
-                  patch: { status: e.target.value as ProjectStatus },
-                })
-              }
-              className="rounded-md border border-neutral-300 px-2 py-1 text-xs"
-            >
-              {STATUS_OPTIONS.map((s) => (
-                <option key={s} value={s}>
-                  {PROJECT_STATUS_LABEL[s]}
-                </option>
-              ))}
-            </select>
+            <span className="rounded bg-neutral-100 px-2 py-0.5 text-xs text-neutral-700">
+              {projectStatusLabel(project)}
+            </span>
           </PropertyRow>
 
           <PropertyRow label="類別">
-            <input
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              onBlur={() => category !== (project.category ?? "") && updateProject.mutate({ id: project.id, patch: { category: category || null } })}
-              placeholder="Empty"
-              className="w-full rounded-md border border-transparent px-1.5 py-1 text-xs outline-none hover:border-neutral-200 focus:border-neutral-300"
-            />
+            <span className={project.category ? "text-neutral-700" : "text-neutral-300"}>
+              {project.category || "Empty"}
+            </span>
           </PropertyRow>
 
           <PropertyRow label="業主">
-            <input
-              value={owner}
-              onChange={(e) => setOwner(e.target.value)}
-              onBlur={() => owner !== (project.owner ?? "") && updateProject.mutate({ id: project.id, patch: { owner: owner || null } })}
-              placeholder="Empty"
-              className="w-full rounded-md border border-transparent px-1.5 py-1 text-xs outline-none hover:border-neutral-200 focus:border-neutral-300"
-            />
+            <span className={project.owner ? "text-neutral-700" : "text-neutral-300"}>{project.owner || "Empty"}</span>
           </PropertyRow>
 
           <PropertyRow label="執行期間">
-            <div className="flex items-center gap-1.5">
-              <input
-                type="date"
-                value={project.start_date ?? ""}
-                onChange={(e) => updateProject.mutate({ id: project.id, patch: { start_date: e.target.value || null } })}
-                className="rounded-md border border-neutral-300 px-1.5 py-1 text-xs"
-              />
-              <span className="text-neutral-400">–</span>
-              <input
-                type="date"
-                value={project.due_date ?? ""}
-                onChange={(e) => updateProject.mutate({ id: project.id, patch: { due_date: e.target.value || null } })}
-                className="rounded-md border border-neutral-300 px-1.5 py-1 text-xs"
-              />
-            </div>
+            <span className={project.start_date || project.due_date ? "text-neutral-700" : "text-neutral-300"}>
+              {project.start_date || project.due_date
+                ? `${project.start_date ?? "?"} – ${project.due_date ?? "?"}`
+                : "Empty"}
+            </span>
           </PropertyRow>
 
           <PropertyRow label="完成度">
@@ -180,6 +136,8 @@ function ProjectPageBody({ project, tasks }: { project: Project; tasks: Task[] }
 
       <ProjectStatsPanel projectId={project.id} />
       <ProjectTaskBoard tasks={tasks} />
+
+      {editOpen && <ProjectFormDialog project={project} onClose={() => setEditOpen(false)} />}
     </div>
   );
 }
