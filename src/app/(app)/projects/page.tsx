@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useAreas } from "@/hooks/use-areas";
@@ -10,6 +10,8 @@ import { projectStatusLabel } from "@/lib/types";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import type { AreaType } from "@/lib/types";
 
+type SortKey = "created_desc" | "created_asc" | "name" | "status" | "progress_desc";
+
 function ProjectsContent() {
   const searchParams = useSearchParams();
   const areaFilter = (searchParams.get("area") as AreaType | null) ?? null;
@@ -18,11 +20,29 @@ function ProjectsContent() {
   const { data: projects, isLoading } = useProjects();
   const { data: counts } = useTaskCountsByProject();
   const [dialogArea, setDialogArea] = useState<AreaType | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>("created_desc");
 
-  const filtered = (projects ?? []).filter((p) => {
-    if (!areaFilter) return true;
-    return areas?.find((a) => a.id === p.area_id)?.type === areaFilter;
-  });
+  const filtered = useMemo(() => {
+    const rows = (projects ?? []).filter((p) => {
+      if (!areaFilter) return true;
+      return areas?.find((a) => a.id === p.area_id)?.type === areaFilter;
+    });
+
+    function progressOf(id: string) {
+      const c = counts?.[id];
+      return c && c.total > 0 ? c.completed / c.total : -1;
+    }
+
+    const sorted = [...rows];
+    sorted.sort((a, b) => {
+      if (sortKey === "created_desc") return b.created_at.localeCompare(a.created_at);
+      if (sortKey === "created_asc") return a.created_at.localeCompare(b.created_at);
+      if (sortKey === "name") return a.name.localeCompare(b.name);
+      if (sortKey === "status") return a.status.localeCompare(b.status);
+      return progressOf(b.id) - progressOf(a.id);
+    });
+    return sorted;
+  }, [projects, areas, areaFilter, counts, sortKey]);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -41,12 +61,25 @@ function ProjectsContent() {
             )}
           </p>
         </div>
-        <button
-          onClick={() => setDialogArea(areaFilter ?? "work")}
-          className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white"
-        >
-          + 新增 Project
-        </button>
+        <div className="flex items-center gap-2">
+          <select
+            value={sortKey}
+            onChange={(e) => setSortKey(e.target.value as SortKey)}
+            className="rounded-md border border-neutral-300 px-2 py-1.5 text-sm text-neutral-600"
+          >
+            <option value="created_desc">建立時間（新到舊）</option>
+            <option value="created_asc">建立時間（舊到新）</option>
+            <option value="name">名稱</option>
+            <option value="status">狀態</option>
+            <option value="progress_desc">完成度（高到低）</option>
+          </select>
+          <button
+            onClick={() => setDialogArea(areaFilter ?? "work")}
+            className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white"
+          >
+            + 新增 Project
+          </button>
+        </div>
       </div>
 
       {isLoading && <p className="text-sm text-neutral-500">載入中…</p>}
