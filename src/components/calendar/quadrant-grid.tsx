@@ -5,15 +5,12 @@ import { useTasksInRange } from "@/hooks/use-calendar-tasks";
 import { useUpdateTask } from "@/hooks/use-tasks";
 import { useTodosForDate, useUpdateTodo } from "@/hooks/use-todos";
 import { useRemindersOnDate, useUpdateReminder } from "@/hooks/use-reminders";
-import { useTaskColorResolver } from "@/hooks/use-task-color";
-import { useAreas } from "@/hooks/use-areas";
-import { useProjects } from "@/hooks/use-projects";
+import { useTaskColorResolver, useReminderColorResolver } from "@/hooks/use-task-color";
 import { useCalendarFilterStore } from "@/stores/calendar-filter";
 import { useTaskPanelStore } from "@/stores/task-panel";
 import { useTodoPanelStore } from "@/stores/todo-panel";
 import { useReminderPanelStore } from "@/stores/reminder-panel";
 import { toISODate } from "@/lib/date";
-import type { Project, Reminder } from "@/lib/types";
 
 const QUADRANTS = [
   { key: "iu", important: true, urgent: true, label: "重要且緊急", color: "#e03131", icon: "M9 1.5 3 9h4l-1 5.5L13 7H9l1-5.5Z" },
@@ -48,9 +45,8 @@ export function QuadrantGrid({ date }: { date: Date }) {
   const { data: tasks } = useTasksInRange(iso, iso);
   const { data: todos } = useTodosForDate(iso);
   const { data: reminders } = useRemindersOnDate(iso);
-  const { data: areas } = useAreas();
-  const { data: projects } = useProjects();
   const { areaTypeOf, colorOf, projectOf } = useTaskColorResolver();
+  const reminderResolver = useReminderColorResolver();
   const updateTask = useUpdateTask();
   const updateTodo = useUpdateTodo();
   const updateReminder = useUpdateReminder();
@@ -69,18 +65,6 @@ export function QuadrantGrid({ date }: { date: Date }) {
     if (areaType === "personal") return showPersonal;
     if (areaType === "work") return showWork && (!projectId || isProjectVisible(projectId));
     return showPersonal || showWork;
-  }
-
-  // Reminder 沒有自己的 area_id/project_id，要透過掛的 Project 換算——沒掛 Project
-  // 的話沒有 Area 可以歸類，一律當作兩個 toggle 有開其中一個就顯示（跟 null areaType 同規則）。
-  function reminderProject(r: Reminder): Project | null {
-    if (r.linked_type !== "project" || !r.linked_id) return null;
-    return projects?.find((p) => p.id === r.linked_id) ?? null;
-  }
-  function reminderAreaType(r: Reminder): "personal" | "work" | null {
-    const project = reminderProject(r);
-    if (!project) return null;
-    return areas?.find((a) => a.id === project.area_id)?.type ?? null;
   }
 
   const taskItems: QuadrantItem[] = (tasks ?? [])
@@ -114,24 +98,21 @@ export function QuadrantGrid({ date }: { date: Date }) {
     }));
 
   const reminderItems: QuadrantItem[] = (reminders ?? [])
-    .filter((r) => passesFilter(reminderAreaType(r), reminderProject(r)?.id ?? null))
-    .map((r) => {
-      const project = reminderProject(r);
-      return {
-        kind: "reminder",
-        id: r.id,
-        title: r.title ?? r.note ?? "提醒",
-        subtitle: r.is_all_day
-          ? "整天"
-          : new Date(r.remind_at).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" }),
-        important: r.important,
-        urgent: r.urgent,
-        color: project?.color ?? "#9ca3af",
-        areaType: reminderAreaType(r),
-        projectName: project?.name ?? null,
-        onOpen: () => openReminder(r.id),
-      };
-    });
+    .filter((r) => passesFilter(reminderResolver.areaTypeOf(r), reminderResolver.projectOf(r)?.id ?? null))
+    .map((r) => ({
+      kind: "reminder",
+      id: r.id,
+      title: r.title ?? r.note ?? "提醒",
+      subtitle: r.is_all_day
+        ? "整天"
+        : new Date(r.remind_at).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" }),
+      important: r.important,
+      urgent: r.urgent,
+      color: reminderResolver.colorOf(r),
+      areaType: reminderResolver.areaTypeOf(r),
+      projectName: reminderResolver.projectOf(r)?.name ?? null,
+      onOpen: () => openReminder(r.id),
+    }));
 
   const items = [...taskItems, ...todoItems, ...reminderItems];
 

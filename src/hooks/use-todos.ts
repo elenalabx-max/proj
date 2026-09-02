@@ -70,6 +70,29 @@ export function useTodosForDate(date: string) {
   });
 }
 
+// Week/Month 行事曆格子用——跟 useTodosForDate 同一套條件，只是查一段範圍。
+export function useTodosInRange(startDate: string, endDate: string) {
+  const { user } = useUser();
+
+  return useQuery({
+    queryKey: ["todos", "range", startDate, endDate, user?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("todos")
+        .select("*")
+        .gte("date", startDate)
+        .lte("date", endDate)
+        .is("completed_at", null)
+        .is("archived_at", null)
+        .order("date", { ascending: true });
+      if (error) throw error;
+      return data as Todo[];
+    },
+    enabled: !!user,
+  });
+}
+
 // 逾期未完成的 Todo（date 是過去式、還沒完成）——同樣算自動遺忘的一種。
 export function useOverdueTodos() {
   const { user } = useUser();

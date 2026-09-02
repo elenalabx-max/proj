@@ -52,6 +52,28 @@ export function useProjectRemindersInRange(start: string, end: string) {
   });
 }
 
+// Week/Month 行事曆格子用——跟 Today 一樣不限定要掛 Project（沒掛的話 Area 判斷
+// 就當作 null，跟 Quadrant 用同一套「兩個 toggle 開一個就顯示」規則）。
+export function useRemindersInRange(start: string, end: string) {
+  const { user } = useUser();
+
+  return useQuery({
+    queryKey: ["reminders", "range", start, end, user?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("reminders")
+        .select("*")
+        .gte("remind_at", `${start}T00:00:00`)
+        .lt("remind_at", `${end}T23:59:59.999`)
+        .order("remind_at", { ascending: true });
+      if (error) throw error;
+      return data as Reminder[];
+    },
+    enabled: !!user,
+  });
+}
+
 // 逾期未完成的提醒（時間點過了、跨過 0 點）——算自動遺忘的一種，見 lib/overdue.ts。
 export function useOverdueReminders() {
   const { user } = useUser();
