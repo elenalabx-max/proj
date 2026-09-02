@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { isReminderOverdue } from "@/lib/overdue";
 import type { Reminder, ReminderLinkedType } from "@/lib/types";
 import { useUser } from "./use-user";
 
@@ -51,25 +52,25 @@ export function useProjectRemindersInRange(start: string, end: string) {
   });
 }
 
-// 已經到時間、還沒完成的提醒——通知鈴鐺用。沒有背景 job 推播，查詢當下直接比對時間就好。
-export function useDueReminders() {
+// 逾期未完成的提醒（時間點過了、跨過 0 點）——算自動遺忘的一種，見 lib/overdue.ts。
+export function useOverdueReminders() {
   const { user } = useUser();
 
   return useQuery({
-    queryKey: ["reminders", "due", user?.id],
+    queryKey: ["reminders", "overdue", user?.id],
     queryFn: async () => {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("reminders")
         .select("*")
         .is("completed_at", null)
-        .lte("remind_at", new Date().toISOString())
+        .is("recurrence_rule_id", null)
+        .lt("remind_at", new Date().toISOString())
         .order("remind_at", { ascending: true });
       if (error) throw error;
-      return data as Reminder[];
+      return (data as Reminder[]).filter(isReminderOverdue);
     },
     enabled: !!user,
-    refetchInterval: 60_000,
   });
 }
 

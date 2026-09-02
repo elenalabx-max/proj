@@ -4,7 +4,6 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { QuickAdd } from "@/components/layout/quick-add";
 import { ActiveTimerBadge } from "@/components/layout/active-timer-badge";
 import { GlobalSearch } from "@/components/layout/global-search";
-import { NotificationBell } from "@/components/layout/notification-bell";
 import { TaskDetailPanel } from "@/components/tasks/task-detail-panel";
 import { ReminderDetailPanel } from "@/components/reminders/reminder-detail-panel";
 import { TodoDetailPanel } from "@/components/todos/todo-detail-panel";
@@ -24,7 +23,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <GlobalSearch />
           <ActiveTimerBadge />
           <div className="ml-auto flex items-center gap-3">
-            <NotificationBell />
             <span className="text-xs text-neutral-500">{user?.email}</span>
             <form action={signOut}>
               <button

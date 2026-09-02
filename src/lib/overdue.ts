@@ -1,4 +1,4 @@
-import type { Task, Todo } from "./types";
+import type { Reminder, Task, Todo } from "./types";
 
 const EXEMPT_STATUSES = new Set(["completed", "forgotten", "waiting"]);
 
@@ -23,4 +23,17 @@ export function isTodoOverdue(todo: Pick<Todo, "date" | "completed_at" | "forgot
   if (!todo.date) return false;
   const today = new Date().toISOString().slice(0, 10);
   return todo.date < today;
+}
+
+// Reminder 沒有「手動遺忘」欄位（沒有 forgotten_until）——這裡只處理「怕忘記完成」
+// 的自動逾期：時間點過了、跨過 0 點變成昨天以前，還沒勾完成，就算自動遺忘的一種。
+// 重複的 master 先不算（每一次 occurrence 有沒有做到，是另一個問題，這裡先跳過）。
+export function isReminderOverdue(reminder: Pick<Reminder, "remind_at" | "completed_at" | "recurrence_rule_id">): boolean {
+  if (reminder.completed_at) return false;
+  if (reminder.recurrence_rule_id) return false;
+  const d = new Date(reminder.remind_at);
+  const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const today = new Date();
+  const todayLocal = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  return localDate < todayLocal;
 }
