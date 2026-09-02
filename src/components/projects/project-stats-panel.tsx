@@ -28,8 +28,8 @@ export function ProjectStatsPanel({ projectId }: { projectId: string }) {
 
       <div className="divide-y divide-neutral-100 rounded-lg border border-neutral-200 bg-white">
         {stats.rows.map((r) => (
-          <div key={r.id} className="flex items-center justify-between px-3 py-2 text-xs">
-            <span className="truncate text-neutral-700">{r.title}</span>
+          <div key={r.id} className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
+            <span className="min-w-0 truncate text-neutral-700">{r.title}</span>
             <span className="shrink-0 font-mono text-neutral-500">
               預計 {formatMinutes(r.estimated)} ・ 實際 {formatMinutes(r.actual)}
             </span>
