@@ -18,6 +18,8 @@ export type Project = {
   description: string | null;
   color: string;
   status: ProjectStatus;
+  category: string | null;
+  owner: string | null;
   start_date: string | null;
   due_date: string | null;
   created_at: string;
