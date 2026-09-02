@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "./actions";
 import { Sidebar } from "@/components/layout/sidebar";
+import { MobileSidebarToggle } from "@/components/layout/mobile-sidebar-toggle";
 import { QuickAdd } from "@/components/layout/quick-add";
 import { ActiveTimerBadge } from "@/components/layout/active-timer-badge";
 import { GlobalSearch } from "@/components/layout/global-search";
@@ -18,12 +19,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen bg-neutral-50">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center gap-4 border-b border-neutral-200 bg-white px-6 py-3">
+        <header className="flex items-center gap-3 border-b border-neutral-200 bg-white px-4 py-3 md:gap-4 md:px-6">
+          <MobileSidebarToggle />
           <QuickAdd />
           <GlobalSearch />
           <ActiveTimerBadge />
           <div className="ml-auto flex items-center gap-3">
-            <span className="text-xs text-neutral-500">{user?.email}</span>
+            <span className="hidden text-xs text-neutral-500 sm:inline">{user?.email}</span>
             <form action={signOut}>
               <button
                 type="submit"

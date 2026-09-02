@@ -5,6 +5,8 @@ import { useForgottenTasks, useOverdueTasks, useUpdateTask } from "@/hooks/use-t
 import { useForgottenTodos, useOverdueTodos, useUpdateTodo } from "@/hooks/use-todos";
 import { useOverdueReminders } from "@/hooks/use-reminders";
 import { useReminderPanelStore } from "@/stores/reminder-panel";
+import { useTaskPanelStore } from "@/stores/task-panel";
+import { useTodoPanelStore } from "@/stores/todo-panel";
 import type { Reminder, Task, Todo } from "@/lib/types";
 
 const FOREVER = "9999-12-31";
@@ -34,6 +36,14 @@ export default function ForgottenPage() {
   const updateTask = useUpdateTask();
   const updateTodo = useUpdateTodo();
   const openReminder = useReminderPanelStore((s) => s.open);
+  const openTask = useTaskPanelStore((s) => s.open);
+  const openTodo = useTodoPanelStore((s) => s.open);
+
+  function openRow(row: Row) {
+    if (row.kind === "task") openTask(row.id);
+    else if (row.kind === "todo") openTodo(row.id);
+    else openReminder(row.id);
+  }
 
   const rows: Row[] = useMemo(() => {
     const taskRows: Row[] = (tasks ?? []).map((t) => ({ kind: "task", id: t.id, title: t.title, data: t, auto: false }));
@@ -85,9 +95,15 @@ export default function ForgottenPage() {
       <div className="divide-y divide-neutral-100 rounded-lg border border-neutral-200 bg-white">
         {rows.map((r) => (
           <div key={`${r.kind}:${r.auto ? "auto" : "manual"}:${r.id}`} className="flex items-center justify-between px-4 py-2.5">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-neutral-900">{r.title}</span>
-              <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-500">
+            <div className="flex min-w-0 items-center gap-2">
+              <button
+                onClick={() => openRow(r)}
+                className="truncate text-left text-sm text-neutral-900 hover:underline"
+                title={`點擊開啟 ${r.kind === "todo" ? "Todo" : r.kind === "task" ? "Task" : "Reminder"} 詳細內容`}
+              >
+                {r.title}
+              </button>
+              <span className="shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-500">
                 {r.kind === "todo" ? "Todo" : r.kind === "task" ? "Task" : "Reminder"}
               </span>
               {r.auto && (

@@ -374,7 +374,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
         onClick={() => {
           if (b.occurrence) setOccurrenceCompleted.mutate({ ...b.occurrence, completed: !b.occurrence.completed });
         }}
-        className={`absolute overflow-hidden rounded px-2 py-1 text-xs select-none ${
+        className={`absolute touch-none overflow-hidden rounded px-2 py-1 text-xs select-none ${
           b.realTask ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
         }`}
         style={{
@@ -408,7 +408,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
         </div>
 
         {b.realTask && (
-          <div onPointerDown={(e) => startResize(e, b)} className="absolute inset-x-0 bottom-0 h-2 cursor-ns-resize" />
+          <div onPointerDown={(e) => startResize(e, b)} className="absolute inset-x-0 bottom-0 h-2 touch-none cursor-ns-resize" />
         )}
         {b.occurrence && (
           <button

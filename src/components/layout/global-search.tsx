@@ -68,7 +68,7 @@ export function GlobalSearch() {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/20 pt-24" onClick={close}>
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/20 px-4 pt-24" onClick={close}>
           <div
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-md rounded-lg border border-neutral-200 bg-white shadow-lg"

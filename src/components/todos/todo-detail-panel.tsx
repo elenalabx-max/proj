@@ -22,7 +22,7 @@ export function TodoDetailPanel() {
   if (!todoId || !todo) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20" onClick={close}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 p-4" onClick={close}>
       {/* keyed by todo.id so the buffered title field resets per todo without an effect */}
       <TodoPanelBody key={todo.id} todo={todo} areas={areas ?? []} projects={projects ?? []} close={close} />
     </div>

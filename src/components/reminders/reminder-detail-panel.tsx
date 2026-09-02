@@ -33,7 +33,7 @@ export function ReminderDetailPanel() {
   if (!reminderId || !reminder) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20" onClick={close}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 p-4" onClick={close}>
       {/* keyed by reminder.id so the buffered title field resets per reminder without an effect */}
       <ReminderPanelBody key={reminder.id} reminder={reminder} projects={projects ?? []} close={close} />
     </div>

@@ -54,7 +54,7 @@ export function QuickAdd() {
 
   if (pendingTitle) {
     return (
-      <form onSubmit={handleCreateReminder} className="flex flex-1 max-w-md items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm">
+      <form onSubmit={handleCreateReminder} className="flex min-w-0 flex-1 max-w-md items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm">
         <span className="shrink-0 truncate text-neutral-600">「{pendingTitle}」</span>
         <input
           type="date"
@@ -88,7 +88,7 @@ export function QuickAdd() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-1 max-w-md items-center gap-1.5">
+    <form onSubmit={handleSubmit} className="flex min-w-0 flex-1 max-w-md items-center gap-1.5">
       <div className="flex shrink-0 gap-0.5 rounded-md border border-neutral-200 bg-white p-0.5">
         {(["todo", "reminder"] as const).map((m) => (
           <button
