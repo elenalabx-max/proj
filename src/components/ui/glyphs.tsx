@@ -4,9 +4,8 @@ type GlyphProps = { className?: string; style?: React.CSSProperties };
 
 export function TodoDotIcon({ className, style }: GlyphProps) {
   return (
-    <svg viewBox="0 0 16 16" className={className} style={style} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="10" height="10" rx="2" />
-      <path d="M5.5 8.2 7.2 10 10.5 6.2" />
+    <svg viewBox="0 0 16 16" className={className} style={style} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 8.5 6.5 12 13 4" />
     </svg>
   );
 }

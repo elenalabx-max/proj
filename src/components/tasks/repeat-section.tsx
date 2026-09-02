@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useClearRecurrence, useSetRecurrence } from "@/hooks/use-recurrence";
 import { describeRRuleText, WEEKDAY_ZH, type RecurrencePattern } from "@/lib/recurrence";
+import { todayISODate } from "@/lib/date";
 import type { Task } from "@/lib/types";
 
 function useRuleText(ruleId: string | null) {
@@ -35,7 +36,7 @@ export function RepeatSection({ task }: { task: Task }) {
   const [editing, setEditing] = useState(false);
 
   function handleSave() {
-    const startsOn = task.scheduled_date ?? new Date().toISOString().slice(0, 10);
+    const startsOn = task.scheduled_date ?? todayISODate();
     let pattern: RecurrencePattern;
     if (freq === "weekly") pattern = { freq: "weekly", weekdays: weekdays.length ? weekdays : [0] };
     else if (freq === "monthly") pattern = { freq: "monthly", day: monthDay };

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { isToday } from "date-fns";
 import { useTasksInRange } from "@/hooks/use-calendar-tasks";
 import { useCreateTask, useUpdateTask } from "@/hooks/use-tasks";
 import { useAreas } from "@/hooks/use-areas";
@@ -477,8 +478,18 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
       <div className="flex border-b border-neutral-200">
         <div className="w-12 shrink-0" />
         {dateGroups.map((g) => (
-          <div key={g.iso} className="flex-1 border-l border-neutral-200 px-2.5 py-1.5 text-xs font-semibold text-neutral-800">
-            {dateLabel(g.date)}
+          <div
+            key={g.iso}
+            className={`flex-1 border-l border-neutral-200 px-2.5 py-1.5 text-xs font-semibold ${
+              isToday(g.date) ? "bg-neutral-900/5 text-neutral-900" : "text-neutral-800"
+            }`}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              {dateLabel(g.date)}
+              {isToday(g.date) && (
+                <span className="rounded-full bg-neutral-900 px-1.5 py-0.5 text-[10px] font-semibold text-white">今天</span>
+              )}
+            </span>
           </div>
         ))}
       </div>

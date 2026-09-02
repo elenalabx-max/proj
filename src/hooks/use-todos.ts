@@ -3,11 +3,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { isTodoOverdue } from "@/lib/overdue";
+import { todayISODate } from "@/lib/date";
 import type { Task, Todo } from "@/lib/types";
 import { useUser } from "./use-user";
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  return todayISODate();
 }
 
 export function useTodo(id: string | null) {
@@ -20,6 +21,24 @@ export function useTodo(id: string | null) {
       return data as Todo;
     },
     enabled: !!id,
+  });
+}
+
+export function useProjectTodos(projectId: string | null) {
+  return useQuery({
+    queryKey: ["todos", "project", projectId],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("todos")
+        .select("*")
+        .eq("project_id", projectId)
+        .is("archived_at", null)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as Todo[];
+    },
+    enabled: !!projectId,
   });
 }
 

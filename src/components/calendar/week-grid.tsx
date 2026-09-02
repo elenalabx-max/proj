@@ -104,12 +104,36 @@ export function WeekGrid({ dates }: { dates: Date[] }) {
         const dayItems = items.filter((it) => it.date === iso).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
 
         return (
-          <div key={iso} className="min-h-[140px] rounded-lg border border-neutral-200 bg-white p-2">
-            <div className={`mb-1.5 text-xs font-semibold ${isToday(date) ? "text-neutral-900" : "text-neutral-500"}`}>
-              {labels[i]} <span className="font-mono">{date.getDate()}</span>
+          <div
+            key={iso}
+            className={`min-h-[140px] rounded-lg border p-2 ${
+              isToday(date) ? "border-neutral-300 bg-neutral-900/5" : "border-neutral-200 bg-white"
+            }`}
+          >
+            <div className={`mb-1.5 flex items-center gap-1.5 text-xs font-semibold ${isToday(date) ? "text-neutral-900" : "text-neutral-500"}`}>
+              <span>
+                {labels[i]} <span className="font-mono">{date.getDate()}</span>
+              </span>
+              {isToday(date) && (
+                <span className="rounded-full bg-neutral-900 px-1.5 py-0.5 text-[10px] font-semibold text-white">今天</span>
+              )}
             </div>
             <div className="space-y-1">
               {dayItems.map((it) => {
+                // Todo 沒有時間概念，用純色塊當時段來畫不太對——改成淺底、
+                // 打勾圖示照分類顏色上色，跟 Month 檢視的畫法一致。
+                if (it.kind === "todo") {
+                  return (
+                    <button
+                      key={`${it.kind}:${it.id}`}
+                      onClick={it.onOpen}
+                      className="flex w-full items-center gap-1.5 truncate rounded px-1.5 py-1 text-left text-[11px] font-medium text-neutral-800 hover:bg-neutral-50"
+                    >
+                      <TodoDotIcon className="h-3 w-3 shrink-0" style={{ color: it.color }} />
+                      <span className="truncate">{it.title}</span>
+                    </button>
+                  );
+                }
                 const fg = getContrastTextColor(it.color);
                 return (
                   <button
@@ -118,7 +142,6 @@ export function WeekGrid({ dates }: { dates: Date[] }) {
                     className="flex w-full items-center gap-1 truncate rounded px-1.5 py-1 text-left text-[11px] font-medium"
                     style={{ background: it.color, color: fg }}
                   >
-                    {it.kind === "todo" && <TodoDotIcon className="h-3 w-3 shrink-0" />}
                     {it.kind === "reminder" && <ReminderDotIcon className="h-3 w-3 shrink-0" />}
                     <span className="truncate">
                       {it.timeLabel && <span className="font-mono opacity-85">{it.timeLabel} </span>}

@@ -16,6 +16,7 @@ import { MultiDayTimeline } from "@/components/calendar/multi-day-timeline";
 import { QuadrantGrid } from "@/components/calendar/quadrant-grid";
 import { AreaProjectFilter } from "@/components/calendar/area-project-filter";
 import { CheckboxIcon } from "@/components/ui/checkbox";
+import { TodoDotIcon } from "@/components/ui/glyphs";
 import { toISODate } from "@/lib/date";
 
 const CalendarGlyph = () => (
@@ -24,12 +25,7 @@ const CalendarGlyph = () => (
     <path d="M2.5 6.5h11M5.5 2v2.5M10.5 2v2.5" />
   </svg>
 );
-const TodoGlyph = () => (
-  <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="3" width="10" height="10" rx="2" />
-    <path d="M5.5 8.2 7.2 10 10.5 6.2" />
-  </svg>
-);
+const TodoGlyph = () => <TodoDotIcon className="h-3.5 w-3.5" />;
 const ReviewGlyph = () => (
   <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8Z" />

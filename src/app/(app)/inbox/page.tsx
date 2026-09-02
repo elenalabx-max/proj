@@ -8,6 +8,7 @@ import { useInboxTasks, useUpdateTask, useBulkUpdateTasks } from "@/hooks/use-ta
 import { useTaskPanelStore } from "@/stores/task-panel";
 import { useTodoPanelStore } from "@/stores/todo-panel";
 import { CheckboxIcon } from "@/components/ui/checkbox";
+import { toISODate } from "@/lib/date";
 import type { Task, Todo } from "@/lib/types";
 
 type Row =
@@ -16,10 +17,12 @@ type Row =
 
 const FORGOTTEN_FOREVER = "9999-12-31";
 
+// 一定要用本地時區算「今天/明天」，不要用 toISOString()（那是 UTC，台灣時間
+// 半夜到早上 8 點前這段 UTC 還沒跨過日期，「明天」會算成「今天」）。
 function isoDate(offsetDays: number) {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
-  return d.toISOString().slice(0, 10);
+  return toISODate(d);
 }
 
 export default function InboxPage() {

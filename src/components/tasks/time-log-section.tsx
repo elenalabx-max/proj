@@ -11,6 +11,7 @@ import {
 } from "@/hooks/use-time-logs";
 import { useActiveTimer, useStartTimer, useStopTimer } from "@/hooks/use-timer";
 import { formatElapsed, formatMinutes, useElapsedSeconds } from "@/hooks/use-elapsed";
+import { todayISODate } from "@/lib/date";
 import type { Task } from "@/lib/types";
 
 export function TimeLogSection({ task }: { task: Task }) {
@@ -127,7 +128,7 @@ function TimeLogForm({
   const updateTimeLog = useUpdateTimeLog();
 
   const [method, setMethod] = useState<"range" | "duration">(editingLog?.started_at ? "range" : "duration");
-  const [logDate, setLogDate] = useState(editingLog?.log_date ?? new Date().toISOString().slice(0, 10));
+  const [logDate, setLogDate] = useState(editingLog?.log_date ?? todayISODate());
   const [startTime, setStartTime] = useState(editingLog?.started_at?.slice(11, 16) ?? "09:00");
   const [endTime, setEndTime] = useState(editingLog?.ended_at?.slice(11, 16) ?? "10:00");
   const [durationInput, setDurationInput] = useState(String(editingLog?.duration_minutes ?? 30));

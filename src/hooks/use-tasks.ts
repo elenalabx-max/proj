@@ -4,13 +4,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Task } from "@/lib/types";
 import { isTaskOverdue } from "@/lib/overdue";
+import { todayISODate } from "@/lib/date";
 import { useUser } from "./use-user";
 
 // Inbox = 還沒分類的（status='inbox'），加上「遺忘到某一天、期限已到」的那些
 // （見規劃書第 13 節：到期後自動回到 Inbox）。無限期遺忘的不會出現在這裡。
 export function useInboxTasks() {
   const { user } = useUser();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISODate();
 
   return useQuery({
     queryKey: ["tasks", "inbox", user?.id],
@@ -156,7 +157,7 @@ export function useCompleteTask() {
 // 還在遺忘中、還沒到期的（無限期，或遺忘到某天但那天還沒到）。
 export function useForgottenTasks() {
   const { user } = useUser();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISODate();
 
   return useQuery({
     queryKey: ["tasks", "forgotten", user?.id],
@@ -212,7 +213,7 @@ export function useRestoreTask() {
 // 是今天或更早」先在 DB 端縮小範圍，精確判斷交給共用的 isTaskOverdue。
 export function useOverdueTasks() {
   const { user } = useUser();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISODate();
 
   return useQuery({
     queryKey: ["tasks", "overdue-candidates", user?.id],

@@ -10,6 +10,24 @@ function invalidateReminders(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: ["reminders"] });
 }
 
+export function useProjectReminders(projectId: string | null) {
+  return useQuery({
+    queryKey: ["reminders", "project", projectId],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("reminders")
+        .select("*")
+        .eq("linked_type", "project")
+        .eq("linked_id", projectId)
+        .order("remind_at", { ascending: false });
+      if (error) throw error;
+      return data as Reminder[];
+    },
+    enabled: !!projectId,
+  });
+}
+
 export function useRemindersOnDate(date: string) {
   const { user } = useUser();
 

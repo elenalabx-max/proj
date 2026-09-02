@@ -12,6 +12,13 @@ export function toISODate(d: Date): string {
   return format(d, "yyyy-MM-dd");
 }
 
+// "今天"的日期字串——一定要用本地時區算，不要用 `new Date().toISOString().slice(0,10)`。
+// 那個是 UTC 日期，台灣（UTC+8）從 00:00 到 07:59 這段時間 UTC 還停在前一天，
+// 算出來的「今天」會整個錯位一天（「明天」變成「今天」、逾期判斷也會提早/延後）。
+export function todayISODate(): string {
+  return toISODate(new Date());
+}
+
 export function parseISODate(s: string): Date {
   const [y, m, d] = s.split("-").map(Number);
   return new Date(y, m - 1, d);

@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { toISODate } from "@/lib/date";
 import { useUser } from "./use-user";
 
 export type ActiveTimer = {
@@ -54,7 +55,7 @@ async function stopActiveTimer(userId: string) {
     user_id: userId,
     task_id: active.task_id,
     subtask_id: active.subtask_id,
-    log_date: startedAt.toISOString().slice(0, 10),
+    log_date: toISODate(startedAt),
     started_at: startedAt.toISOString(),
     ended_at: endedAt.toISOString(),
     duration_minutes: durationMinutes,

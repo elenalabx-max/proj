@@ -1,3 +1,4 @@
+import { todayISODate } from "./date";
 import type { Reminder, Task, Todo } from "./types";
 
 const EXEMPT_STATUSES = new Set(["completed", "forgotten", "waiting"]);
@@ -10,7 +11,7 @@ const EXEMPT_STATUSES = new Set(["completed", "forgotten", "waiting"]);
 // 但還是今天，不算逾期；要跨過 0 點、變成昨天的事，才算逾期。
 export function isTaskOverdue(task: Task): boolean {
   if (EXEMPT_STATUSES.has(task.status)) return false;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISODate();
 
   if (task.due_date && task.due_date < today) return true;
   if (task.scheduled_date && task.scheduled_date < today) return true;
@@ -21,8 +22,7 @@ export function isTodoOverdue(todo: Pick<Todo, "date" | "completed_at" | "forgot
   if (todo.completed_at) return false;
   if (todo.forgotten_until) return false; // 已經手動遺忘的不用再算自動遺忘一次
   if (!todo.date) return false;
-  const today = new Date().toISOString().slice(0, 10);
-  return todo.date < today;
+  return todo.date < todayISODate();
 }
 
 // Reminder 沒有「手動遺忘」欄位（沒有 forgotten_until）——這裡只處理「怕忘記完成」
@@ -33,7 +33,5 @@ export function isReminderOverdue(reminder: Pick<Reminder, "remind_at" | "comple
   if (reminder.recurrence_rule_id) return false;
   const d = new Date(reminder.remind_at);
   const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  const today = new Date();
-  const todayLocal = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-  return localDate < todayLocal;
+  return localDate < todayISODate();
 }

@@ -3,8 +3,13 @@
 import { use, useMemo, useState } from "react";
 import { useProject } from "@/hooks/use-projects";
 import { useCreateTask, useProjectTasks } from "@/hooks/use-tasks";
+import { useProjectTodos } from "@/hooks/use-todos";
+import { useProjectReminders } from "@/hooks/use-reminders";
 import { useTaskPanelStore } from "@/stores/task-panel";
+import { useTodoPanelStore } from "@/stores/todo-panel";
+import { useReminderPanelStore } from "@/stores/reminder-panel";
 import { ProjectStatsPanel } from "@/components/projects/project-stats-panel";
+import { ProjectEntityProgress } from "@/components/projects/project-entity-progress";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { getContrastTextColor } from "@/lib/colors";
 import { TASK_STATUS_LABEL, projectStatusLabel, type Project, type Task, type TaskStatus } from "@/lib/types";
@@ -32,6 +37,10 @@ export default function ProjectDetailPage({
 function ProjectPageBody({ project, tasks }: { project: Project; tasks: Task[] }) {
   const createTask = useCreateTask();
   const openTask = useTaskPanelStore((s) => s.open);
+  const { data: projectTodos } = useProjectTodos(project.id);
+  const { data: projectReminders } = useProjectReminders(project.id);
+  const openTodo = useTodoPanelStore((s) => s.open);
+  const openReminder = useReminderPanelStore((s) => s.open);
 
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [editOpen, setEditOpen] = useState(false);
@@ -41,6 +50,19 @@ function ProjectPageBody({ project, tasks }: { project: Project; tasks: Task[] }
   const completed = tasks.filter((t) => t.status === "completed").length;
   const total = tasks.length;
   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+  const todoProgressItems = (projectTodos ?? []).map((t) => ({
+    id: t.id,
+    title: t.title,
+    completed: !!t.completed_at,
+    subtitle: t.date,
+  }));
+  const reminderProgressItems = (projectReminders ?? []).map((r) => ({
+    id: r.id,
+    title: r.title ?? r.note ?? "提醒",
+    completed: !!r.completed_at,
+    subtitle: r.remind_at.slice(0, 10),
+  }));
 
   const visibleTasks = useMemo(() => {
     const filtered = statusFilter === "all" ? tasks : tasks.filter((t) => t.status === statusFilter);
@@ -103,7 +125,7 @@ function ProjectPageBody({ project, tasks }: { project: Project; tasks: Task[] }
             </span>
           </PropertyRow>
 
-          <PropertyRow label="完成度">
+          <PropertyRow label="Task 完成度">
             <div className="flex items-center gap-2">
               <div className="h-1.5 w-32 overflow-hidden rounded-full bg-neutral-100">
                 <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
@@ -113,6 +135,9 @@ function ProjectPageBody({ project, tasks }: { project: Project; tasks: Task[] }
               </span>
             </div>
           </PropertyRow>
+
+          <ProjectEntityProgress label="Todo 完成度" items={todoProgressItems} onOpenItem={openTodo} />
+          <ProjectEntityProgress label="提醒完成度" items={reminderProgressItems} onOpenItem={openReminder} />
         </div>
       </div>
 

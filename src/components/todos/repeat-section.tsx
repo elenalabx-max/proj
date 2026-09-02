@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useClearTodoRecurrence, useSetTodoRecurrence } from "@/hooks/use-todo-recurrence";
 import { describeRRuleText, WEEKDAY_ZH, type RecurrencePattern } from "@/lib/recurrence";
+import { todayISODate } from "@/lib/date";
 import type { Todo } from "@/lib/types";
 
 function useRuleText(ruleId: string | null) {
@@ -35,7 +36,7 @@ export function RepeatSection({ todo }: { todo: Todo }) {
   const [editing, setEditing] = useState(false);
 
   function handleSave() {
-    const startsOn = todo.date ?? new Date().toISOString().slice(0, 10);
+    const startsOn = todo.date ?? todayISODate();
     let pattern: RecurrencePattern;
     if (freq === "weekly") pattern = { freq: "weekly", weekdays: weekdays.length ? weekdays : [0] };
     else if (freq === "monthly") pattern = { freq: "monthly", day: monthDay };
