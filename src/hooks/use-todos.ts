@@ -228,12 +228,14 @@ export function useCreateTodo() {
   const { user } = useUser();
 
   return useMutation({
-    mutationFn: async (input: string | { title: string; date?: string | null }) => {
-      const { title, date } = typeof input === "string" ? { title: input, date: null } : input;
+    mutationFn: async (
+      input: string | { title: string; date?: string | null; project_id?: string | null; area_id?: string | null },
+    ) => {
+      const { title, date, project_id, area_id } = typeof input === "string" ? { title: input, date: null, project_id: null, area_id: null } : input;
       const supabase = createClient();
       const { data, error } = await supabase
         .from("todos")
-        .insert({ title, date: date ?? null, user_id: user?.id })
+        .insert({ title, date: date ?? null, project_id: project_id ?? null, area_id: area_id ?? null, user_id: user?.id })
         .select("*")
         .single();
       if (error) throw error;

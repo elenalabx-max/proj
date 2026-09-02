@@ -10,17 +10,16 @@ import { TimePicker } from "@/components/ui/time-picker";
 type Mode = "todo" | "task" | "reminder";
 
 // 全站快速新增：只要標題，Enter 就送進 Inbox（見規劃書第 38 節）。
-// 預設建立 Todo；Task／提醒模式標題送出後多一步選日期（可選加 Project）才真的
-// 建立——提醒一定要有時間，Task 沒選日期就留在 Inbox（status='inbox'），
-// 選了日期就直接算排定好的（status='todo'）。有掛 Project 才會畫在 Calendar
-// 上（沒掛就不知道要畫在 Work 還 Personal 欄），Task 額外會把 Project 的
-// Area 也帶上，跟 Task Detail Panel 手動選 Project 的行為一致。
+// Todo／Task／提醒都是標題送出後多一步選日期（可選加 Project）才真的建立——
+// 提醒一定要有時間；Todo／Task 沒選日期就留在 Inbox（Todo: date=null，
+// Task: status='inbox'），選了日期就算排定好的。有掛 Project 才會畫在
+// Calendar 上（沒掛就不知道要畫在 Work 還 Personal 欄），Task 額外會把
+// Project 的 Area 也帶上，跟 Detail Panel 手動選 Project 的行為一致。
 export function QuickAdd() {
   const [mode, setMode] = useState<Mode>("todo");
   const [value, setValue] = useState("");
   const [pendingTitle, setPendingTitle] = useState<string | null>(null);
-  const [taskDate, setTaskDate] = useState("");
-  const [remindDate, setRemindDate] = useState("");
+  const [pendingDate, setPendingDate] = useState("");
   const [remindTime, setRemindTime] = useState("");
   const [projectId, setProjectId] = useState("");
   const createTodo = useCreateTodo();
@@ -31,8 +30,7 @@ export function QuickAdd() {
   function resetPending() {
     setPendingTitle(null);
     setValue("");
-    setTaskDate("");
-    setRemindDate("");
+    setPendingDate("");
     setRemindTime("");
     setProjectId("");
   }
@@ -41,50 +39,54 @@ export function QuickAdd() {
     e.preventDefault();
     const title = value.trim();
     if (!title) return;
-
-    if (mode === "todo") {
-      createTodo.mutate(title);
-      setValue("");
-    } else {
-      setPendingTitle(title); // 等使用者選日期／時間（可選 Project）才真的建立
-    }
+    setPendingTitle(title); // 等使用者選日期／時間（可選 Project）才真的建立
   }
 
-  function handleCreateTask(e: React.FormEvent) {
+  function handleCreateTodoOrTask(e: React.FormEvent) {
     e.preventDefault();
     if (!pendingTitle) return;
     const project = projects?.find((p) => p.id === projectId);
-    createTask.mutate({
-      title: pendingTitle,
-      status: taskDate ? "todo" : "inbox",
-      scheduled_date: taskDate || null,
-      project_id: project?.id ?? null,
-      area_id: project?.area_id ?? null,
-    });
+
+    if (mode === "todo") {
+      createTodo.mutate({
+        title: pendingTitle,
+        date: pendingDate || null,
+        project_id: project?.id ?? null,
+        area_id: project?.area_id ?? null,
+      });
+    } else {
+      createTask.mutate({
+        title: pendingTitle,
+        status: pendingDate ? "todo" : "inbox",
+        scheduled_date: pendingDate || null,
+        project_id: project?.id ?? null,
+        area_id: project?.area_id ?? null,
+      });
+    }
     resetPending();
   }
 
   function handleCreateReminder(e: React.FormEvent) {
     e.preventDefault();
-    if (!remindDate || !remindTime || !pendingTitle) return;
+    if (!pendingDate || !remindTime || !pendingTitle) return;
     createReminder.mutate({
       linkedType: projectId ? "project" : "standalone",
       linkedId: projectId || undefined,
-      remindAt: new Date(`${remindDate}T${remindTime}`).toISOString(),
+      remindAt: new Date(`${pendingDate}T${remindTime}`).toISOString(),
       title: pendingTitle,
     });
     resetPending();
   }
 
-  if (pendingTitle && mode === "task") {
+  if (pendingTitle && (mode === "todo" || mode === "task")) {
     return (
-      <form onSubmit={handleCreateTask} className="flex min-w-0 flex-1 max-w-md items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm">
+      <form onSubmit={handleCreateTodoOrTask} className="flex min-w-0 flex-1 max-w-md items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm">
         <span className="shrink-0 truncate text-neutral-600">「{pendingTitle}」</span>
         <input
           type="date"
           autoFocus
-          value={taskDate}
-          onChange={(e) => setTaskDate(e.target.value)}
+          value={pendingDate}
+          onChange={(e) => setPendingDate(e.target.value)}
           className="shrink-0 text-xs outline-none"
         />
         <select
@@ -117,8 +119,8 @@ export function QuickAdd() {
           type="date"
           required
           autoFocus
-          value={remindDate}
-          onChange={(e) => setRemindDate(e.target.value)}
+          value={pendingDate}
+          onChange={(e) => setPendingDate(e.target.value)}
           className="shrink-0 text-xs outline-none"
         />
         <TimePicker value={remindTime || null} onChange={setRemindTime} className="w-24 shrink-0 text-xs" />
@@ -152,7 +154,7 @@ export function QuickAdd() {
             key={m}
             type="button"
             onClick={() => setMode(m)}
-            title={m === "todo" ? "新增 Todo（進收集箱）" : m === "task" ? "新增 Task（可選日期／Project）" : "新增提醒"}
+            title={m === "todo" ? "新增 Todo（可選日期／Project）" : m === "task" ? "新增 Task（可選日期／Project）" : "新增提醒"}
             className={`rounded px-1.5 py-1 text-xs ${mode === m ? "bg-neutral-900 text-white" : "text-neutral-400 hover:text-neutral-700"}`}
           >
             {m === "todo" ? (
@@ -178,7 +180,7 @@ export function QuickAdd() {
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder={
-          mode === "todo" ? "+ 新增 Todo…按 Enter 儲存" : mode === "task" ? "+ 新增 Task…按 Enter 選日期" : "+ 新增提醒…按 Enter 選時間"
+          mode === "todo" ? "+ 新增 Todo…按 Enter 選日期" : mode === "task" ? "+ 新增 Task…按 Enter 選日期" : "+ 新增提醒…按 Enter 選時間"
         }
         className="w-full rounded-md border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-sm outline-none placeholder:text-neutral-400 focus:border-neutral-400 focus:bg-white"
       />

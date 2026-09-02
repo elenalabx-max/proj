@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { isToday } from "date-fns";
 import { useTasksInRange } from "@/hooks/use-calendar-tasks";
-import { useCreateTask, useUpdateTask } from "@/hooks/use-tasks";
+import { useArchiveTask, useCreateTask, useUpdateTask } from "@/hooks/use-tasks";
 import { useAreas } from "@/hooks/use-areas";
 import { useProjects } from "@/hooks/use-projects";
 import { useUserSettings } from "@/hooks/use-user-settings";
@@ -81,6 +81,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
   const { data: settings } = useUserSettings();
   const updateTask = useUpdateTask();
   const createTask = useCreateTask();
+  const archiveTask = useArchiveTask();
   const openTask = useTaskPanelStore((s) => s.open);
   const setOccurrenceCompleted = useSetOccurrenceCompleted();
   const cancelOccurrence = useCancelOccurrence();
@@ -96,6 +97,10 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
   const [overridePos, setOverridePos] = useState<{ blockId: string; top: number; height: number } | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const movedRef = useRef(false);
+  // 點空白處新增的 Task 常常是手滑點到，先不開面板，改跳一個幾秒內可以直接
+  // 刪掉的提示，不用點空白就多一個「新任務」還要另外找面板刪除。
+  const [justCreated, setJustCreated] = useState<{ id: string; title: string } | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function areaTypeOf(areaId: string | null) {
     return areas?.find((a) => a.id === areaId)?.type ?? null;
@@ -340,7 +345,13 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
         scheduled_start: minutesToTime(startMin),
         scheduled_end: minutesToTime(startMin + 60),
       })
-      .then((task) => openTask(task.id))
+      .then((task) => {
+        // 不直接開面板——手滑點到空白處很常見，開面板反而更麻煩。改成跳個
+        // 幾秒內可以直接刪掉的提示，真的要編輯的話點提示或直接點色塊都行。
+        if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current);
+        setJustCreated({ id: task.id, title: task.title });
+        undoTimerRef.current = setTimeout(() => setJustCreated(null), 6000);
+      })
       .catch(() => {});
   }
 
@@ -430,6 +441,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
   const hasAllDay = allColumns.some((c) => c.blocks.some((b) => b.is_all_day));
 
   return (
+    <>
     <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
       {hasAllDay && (
         <div className="flex border-b border-neutral-200 text-xs">
@@ -571,5 +583,29 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
         ))}
       </div>
     </div>
+
+    {justCreated && (
+      <div className="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-lg bg-neutral-900 px-4 py-2.5 text-sm text-white shadow-lg">
+        <button
+          onClick={() => {
+            openTask(justCreated.id);
+            setJustCreated(null);
+          }}
+          className="hover:underline"
+        >
+          已新增「{justCreated.title}」，點這裡編輯
+        </button>
+        <button
+          onClick={() => {
+            archiveTask.mutate(justCreated.id);
+            setJustCreated(null);
+          }}
+          className="shrink-0 font-semibold text-red-300 hover:text-red-200"
+        >
+          刪除
+        </button>
+      </div>
+    )}
+    </>
   );
 }

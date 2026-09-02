@@ -14,7 +14,6 @@ import { useReminderPanelStore } from "@/stores/reminder-panel";
 import { useTodoPanelStore } from "@/stores/todo-panel";
 import { MultiDayTimeline } from "@/components/calendar/multi-day-timeline";
 import { QuadrantGrid } from "@/components/calendar/quadrant-grid";
-import { AreaProjectFilter } from "@/components/calendar/area-project-filter";
 import { CheckboxIcon } from "@/components/ui/checkbox";
 import { TodoDotIcon } from "@/components/ui/glyphs";
 import { toISODate } from "@/lib/date";
@@ -232,8 +231,6 @@ export default function TodayPage() {
             ))}
           </div>
         </div>
-
-        <AreaProjectFilter />
 
         {view === "timeline" ? <MultiDayTimeline dates={[today]} /> : <QuadrantGrid date={today} />}
       </div>
