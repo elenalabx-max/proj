@@ -74,6 +74,7 @@ export type NewTask = {
   important?: boolean;
   urgent?: boolean;
   due_date?: string | null;
+  estimated_minutes?: number | null;
   scheduled_date?: string | null;
   scheduled_start?: string | null;
   scheduled_end?: string | null;

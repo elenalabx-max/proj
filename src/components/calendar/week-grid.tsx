@@ -4,6 +4,9 @@ import { isToday } from "date-fns";
 import { useTasksInRange } from "@/hooks/use-calendar-tasks";
 import { useTodosInRange } from "@/hooks/use-todos";
 import { useRemindersInRange } from "@/hooks/use-reminders";
+import { useRecurringOccurrences, useSetOccurrenceCompleted } from "@/hooks/use-recurrence";
+import { useRecurringTodoOccurrences, useSetTodoOccurrenceCompleted } from "@/hooks/use-todo-recurrence";
+import { useRecurringReminderOccurrences, useSetReminderOccurrenceCompleted } from "@/hooks/use-reminder-recurrence";
 import { useTaskColorResolver, useReminderColorResolver } from "@/hooks/use-task-color";
 import { useCalendarFilterStore } from "@/stores/calendar-filter";
 import { useTaskPanelStore } from "@/stores/task-panel";
@@ -32,11 +35,17 @@ export function WeekGrid({ dates }: { dates: Date[] }) {
   const { data: tasks } = useTasksInRange(start, end);
   const { data: todos } = useTodosInRange(start, end);
   const { data: reminders } = useRemindersInRange(start, end);
+  const { data: taskOccurrences } = useRecurringOccurrences(start, end);
+  const { data: todoOccurrences } = useRecurringTodoOccurrences(start, end);
+  const { data: reminderOccurrences } = useRecurringReminderOccurrences(start, end);
   const { areaTypeOf, colorOf } = useTaskColorResolver();
   const reminderResolver = useReminderColorResolver();
   const openTask = useTaskPanelStore((s) => s.open);
   const openTodo = useTodoPanelStore((s) => s.open);
   const openReminder = useReminderPanelStore((s) => s.open);
+  const setOccurrenceCompleted = useSetOccurrenceCompleted();
+  const setTodoOccurrenceCompleted = useSetTodoOccurrenceCompleted();
+  const setReminderOccurrenceCompleted = useSetReminderOccurrenceCompleted();
 
   const showPersonal = useCalendarFilterStore((s) => s.showPersonal);
   const showWork = useCalendarFilterStore((s) => s.showWork);
@@ -49,7 +58,9 @@ export function WeekGrid({ dates }: { dates: Date[] }) {
     return showPersonal || showWork;
   }
 
+  // 有掛 recurrence_rule_id 的 master 改由下面的 occurrences 展開，避免重複顯示。
   const taskItems: WeekItem[] = (tasks ?? [])
+    .filter((t) => !t.recurrence_rule_id)
     .filter((t) => passesFilter(areaTypeOf(t), t.project_id))
     .map((t) => ({
       kind: "task",
@@ -63,6 +74,7 @@ export function WeekGrid({ dates }: { dates: Date[] }) {
     }));
 
   const todoItems: WeekItem[] = (todos ?? [])
+    .filter((t) => !t.recurrence_rule_id)
     .filter((t) => passesFilter(areaTypeOf(t), t.project_id))
     .map((t) => ({
       kind: "todo",
@@ -76,6 +88,7 @@ export function WeekGrid({ dates }: { dates: Date[] }) {
     }));
 
   const reminderItems: WeekItem[] = (reminders ?? [])
+    .filter((r) => !r.recurrence_rule_id)
     .filter((r) => passesFilter(reminderResolver.areaTypeOf(r), reminderResolver.projectOf(r)?.id ?? null))
     .map((r) => {
       const d = new Date(r.remind_at);
@@ -93,7 +106,77 @@ export function WeekGrid({ dates }: { dates: Date[] }) {
       };
     });
 
-  const items = [...taskItems, ...todoItems, ...reminderItems];
+  // 重複展開出來的那次沒有自己的 row，點一下直接切換完成/取消完成——
+  // 跟 Day/3 Days 時間軸的 occurrence 互動邏輯一致，不會另外開面板。
+  const taskOccurrenceItems: WeekItem[] = (taskOccurrences ?? [])
+    .filter((o) => passesFilter(areaTypeOf(o.masterTask), o.masterTask.project_id))
+    .map((o) => ({
+      kind: "task",
+      id: o.id,
+      date: o.date,
+      title: o.title,
+      color: colorOf(o.masterTask),
+      timeLabel: !o.is_all_day && o.scheduled_start ? o.scheduled_start.slice(0, 5) : null,
+      sortKey: !o.is_all_day && o.scheduled_start ? o.scheduled_start : "",
+      onOpen: () =>
+        setOccurrenceCompleted.mutate({
+          ruleId: o.masterTask.recurrence_rule_id!,
+          taskId: o.masterTask.id,
+          date: o.date,
+          completed: !o.completed,
+        }),
+    }));
+
+  const todoOccurrenceItems: WeekItem[] = (todoOccurrences ?? [])
+    .filter((o) => passesFilter(areaTypeOf(o.masterTodo), o.masterTodo.project_id))
+    .map((o) => ({
+      kind: "todo",
+      id: o.id,
+      date: o.date,
+      title: o.title,
+      color: colorOf(o.masterTodo),
+      timeLabel: null,
+      sortKey: "",
+      onOpen: () =>
+        setTodoOccurrenceCompleted.mutate({
+          ruleId: o.masterTodo.recurrence_rule_id!,
+          todoId: o.masterTodo.id,
+          date: o.date,
+          completed: !o.completed,
+        }),
+    }));
+
+  const reminderOccurrenceItems: WeekItem[] = (reminderOccurrences ?? [])
+    .filter((o) => passesFilter(reminderResolver.areaTypeOf(o.masterReminder), reminderResolver.projectOf(o.masterReminder)?.id ?? null))
+    .map((o) => {
+      const d = new Date(o.remindAt);
+      const hhmm = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+      return {
+        kind: "reminder",
+        id: o.id,
+        date: o.date,
+        title: o.title,
+        color: reminderResolver.colorOf(o.masterReminder),
+        timeLabel: o.isAllDay ? null : hhmm,
+        sortKey: o.isAllDay ? "" : hhmm,
+        onOpen: () =>
+          setReminderOccurrenceCompleted.mutate({
+            ruleId: o.masterReminder.recurrence_rule_id!,
+            reminderId: o.masterReminder.id,
+            date: o.date,
+            completed: !o.completed,
+          }),
+      };
+    });
+
+  const items = [
+    ...taskItems,
+    ...todoItems,
+    ...reminderItems,
+    ...taskOccurrenceItems,
+    ...todoOccurrenceItems,
+    ...reminderOccurrenceItems,
+  ];
 
   const labels = weekdayLabels(1);
 

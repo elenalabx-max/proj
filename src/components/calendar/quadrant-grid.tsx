@@ -5,6 +5,9 @@ import { useTasksInRange } from "@/hooks/use-calendar-tasks";
 import { useUpdateTask } from "@/hooks/use-tasks";
 import { useTodosForDate, useUpdateTodo } from "@/hooks/use-todos";
 import { useRemindersOnDate, useUpdateReminder } from "@/hooks/use-reminders";
+import { useRecurringOccurrences } from "@/hooks/use-recurrence";
+import { useRecurringTodoOccurrences } from "@/hooks/use-todo-recurrence";
+import { useRecurringReminderOccurrences } from "@/hooks/use-reminder-recurrence";
 import { useTaskColorResolver, useReminderColorResolver } from "@/hooks/use-task-color";
 import { useCalendarFilterStore } from "@/stores/calendar-filter";
 import { useTaskPanelStore } from "@/stores/task-panel";
@@ -45,6 +48,9 @@ export function QuadrantGrid({ date }: { date: Date }) {
   const { data: tasks } = useTasksInRange(iso, iso);
   const { data: todos } = useTodosForDate(iso);
   const { data: reminders } = useRemindersOnDate(iso);
+  const { data: taskOccurrences } = useRecurringOccurrences(iso, iso);
+  const { data: todoOccurrences } = useRecurringTodoOccurrences(iso, iso);
+  const { data: reminderOccurrences } = useRecurringReminderOccurrences(iso, iso);
   const { areaTypeOf, colorOf, projectOf } = useTaskColorResolver();
   const reminderResolver = useReminderColorResolver();
   const updateTask = useUpdateTask();
@@ -68,6 +74,7 @@ export function QuadrantGrid({ date }: { date: Date }) {
   }
 
   const taskItems: QuadrantItem[] = (tasks ?? [])
+    .filter((t) => !t.recurrence_rule_id)
     .filter((t) => passesFilter(areaTypeOf(t), t.project_id))
     .map((t) => ({
       kind: "task",
@@ -83,6 +90,7 @@ export function QuadrantGrid({ date }: { date: Date }) {
     }));
 
   const todoItems: QuadrantItem[] = (todos ?? [])
+    .filter((t) => !t.recurrence_rule_id)
     .filter((t) => passesFilter(areaTypeOf(t), t.project_id))
     .map((t) => ({
       kind: "todo",
@@ -98,6 +106,7 @@ export function QuadrantGrid({ date }: { date: Date }) {
     }));
 
   const reminderItems: QuadrantItem[] = (reminders ?? [])
+    .filter((r) => !r.recurrence_rule_id)
     .filter((r) => passesFilter(reminderResolver.areaTypeOf(r), reminderResolver.projectOf(r)?.id ?? null))
     .map((r) => ({
       kind: "reminder",
@@ -114,7 +123,62 @@ export function QuadrantGrid({ date }: { date: Date }) {
       onOpen: () => openReminder(r.id),
     }));
 
-  const items = [...taskItems, ...todoItems, ...reminderItems];
+  // 重複展開出來的那次，important/urgent／點開／拖曳都對應到 master 那筆
+  // ——四象限是「這件事的分類」，不是像完成狀態那種需要分次記錄的東西，
+  // 拖一次等於重新分類整個重複系列。
+  const taskOccurrenceItems: QuadrantItem[] = (taskOccurrences ?? [])
+    .filter((o) => passesFilter(areaTypeOf(o.masterTask), o.masterTask.project_id))
+    .map((o) => ({
+      kind: "task",
+      id: o.masterTask.id,
+      title: o.title,
+      subtitle: null,
+      important: o.masterTask.important,
+      urgent: o.masterTask.urgent,
+      color: colorOf(o.masterTask),
+      areaType: areaTypeOf(o.masterTask),
+      projectName: projectOf(o.masterTask)?.name ?? null,
+      onOpen: () => openTask(o.masterTask.id),
+    }));
+
+  const todoOccurrenceItems: QuadrantItem[] = (todoOccurrences ?? [])
+    .filter((o) => passesFilter(areaTypeOf(o.masterTodo), o.masterTodo.project_id))
+    .map((o) => ({
+      kind: "todo",
+      id: o.masterTodo.id,
+      title: o.title,
+      subtitle: null,
+      important: o.masterTodo.important,
+      urgent: o.masterTodo.urgent,
+      color: colorOf(o.masterTodo),
+      areaType: areaTypeOf(o.masterTodo),
+      projectName: projectOf(o.masterTodo)?.name ?? null,
+      onOpen: () => openTodo(o.masterTodo.id),
+    }));
+
+  const reminderOccurrenceItems: QuadrantItem[] = (reminderOccurrences ?? [])
+    .filter((o) => passesFilter(reminderResolver.areaTypeOf(o.masterReminder), reminderResolver.projectOf(o.masterReminder)?.id ?? null))
+    .map((o) => ({
+      kind: "reminder",
+      id: o.masterReminder.id,
+      title: o.title,
+      subtitle: o.isAllDay ? "整天" : new Date(o.remindAt).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" }),
+      important: o.masterReminder.important,
+      urgent: o.masterReminder.urgent,
+      color: reminderResolver.colorOf(o.masterReminder),
+      areaType: reminderResolver.areaTypeOf(o.masterReminder),
+      projectName: reminderResolver.projectOf(o.masterReminder)?.name ?? null,
+      onOpen: () => openReminder(o.masterReminder.id),
+    }));
+
+  const items = [
+    ...taskItems,
+    ...todoItems,
+    ...reminderItems,
+    ...taskOccurrenceItems,
+    ...todoOccurrenceItems,
+    ...reminderOccurrenceItems,
+  ];
 
   function itemsFor(important: boolean, urgent: boolean) {
     return items.filter((i) => i.important === important && i.urgent === urgent);

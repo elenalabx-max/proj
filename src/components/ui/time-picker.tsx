@@ -8,6 +8,13 @@ const TIME_OPTIONS = Array.from({ length: 96 }, (_, i) => {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 });
 
+// scheduled_start/scheduled_end 等 DB 的 time 欄位常常帶秒數回來（"10:15:00"），
+// 但 TIME_OPTIONS／data-value 一律是 "HH:MM"，不先正規化就永遠比對不到，
+// 選單打開時就抓不到現在的值該捲到哪、也標不出目前選的是哪一個。
+function normalize(value: string | null): string | null {
+  return value ? value.slice(0, 5) : null;
+}
+
 function formatDisplay(value: string) {
   const [hStr, mStr] = value.split(":");
   const h = Number(hStr);
@@ -69,8 +76,9 @@ export function TimePicker({
   const [draft, setDraft] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const normalizedValue = normalize(value);
 
-  const text = draft ?? (value ? formatDisplay(value) : "");
+  const text = draft ?? (normalizedValue ? formatDisplay(normalizedValue) : "");
 
   useEffect(() => {
     if (!open) return;
@@ -82,10 +90,10 @@ export function TimePicker({
   }, [open]);
 
   useEffect(() => {
-    if (open && listRef.current && value) {
-      listRef.current.querySelector<HTMLElement>(`[data-value="${value}"]`)?.scrollIntoView({ block: "center" });
+    if (open && listRef.current && normalizedValue) {
+      listRef.current.querySelector<HTMLElement>(`[data-value="${normalizedValue}"]`)?.scrollIntoView({ block: "center" });
     }
-  }, [open, value]);
+  }, [open, normalizedValue]);
 
   function commit(raw: string) {
     const parsed = parseTimeInput(raw);
@@ -128,7 +136,7 @@ export function TimePicker({
                 setOpen(false);
               }}
               className={`block w-full px-3 py-1.5 text-left text-sm ${
-                t === value ? "bg-neutral-900 text-white" : "text-neutral-700 hover:bg-neutral-100"
+                t === normalizedValue ? "bg-neutral-900 text-white" : "text-neutral-700 hover:bg-neutral-100"
               }`}
             >
               {formatDisplay(t)}

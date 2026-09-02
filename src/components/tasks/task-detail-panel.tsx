@@ -222,14 +222,25 @@ function TaskPanelBody({
                 onChange={(start) => {
                   // 只設了開始時間、還沒設結束時間的話，先幫忙補預設 1 小時，使用者可以再自己改。
                   const end = !task.scheduled_end ? minutesToTime(timeToMinutes(start) + 60) : task.scheduled_end;
-                  updateTask.mutate({ id: task.id, patch: { scheduled_start: start, scheduled_end: end } });
+                  updateTask.mutate({
+                    id: task.id,
+                    patch: { scheduled_start: start, scheduled_end: end, estimated_minutes: timeToMinutes(end) - timeToMinutes(start) },
+                  });
                 }}
                 className="flex-1"
               />
               <span className="text-neutral-400">–</span>
               <TimePicker
                 value={task.scheduled_end}
-                onChange={(end) => updateTask.mutate({ id: task.id, patch: { scheduled_end: end } })}
+                onChange={(end) =>
+                  updateTask.mutate({
+                    id: task.id,
+                    // 排定時間改了，預計工時自動跟著算，不用另外手動填。
+                    patch: task.scheduled_start
+                      ? { scheduled_end: end, estimated_minutes: timeToMinutes(end) - timeToMinutes(task.scheduled_start) }
+                      : { scheduled_end: end },
+                  })
+                }
                 className="flex-1"
               />
             </div>

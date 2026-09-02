@@ -4,15 +4,19 @@ import { useRef, useState } from "react";
 import { isToday } from "date-fns";
 import { useTasksInRange } from "@/hooks/use-calendar-tasks";
 import { useArchiveTask, useCreateTask, useUpdateTask } from "@/hooks/use-tasks";
+import { useTodosInRange } from "@/hooks/use-todos";
 import { useAreas } from "@/hooks/use-areas";
 import { useProjects } from "@/hooks/use-projects";
 import { useUserSettings } from "@/hooks/use-user-settings";
 import { useCalendarFilterStore } from "@/stores/calendar-filter";
 import { useTaskPanelStore } from "@/stores/task-panel";
+import { useTodoPanelStore } from "@/stores/todo-panel";
 import { useReminderPanelStore } from "@/stores/reminder-panel";
 import { useCancelOccurrence, useRecurringOccurrences, useSetOccurrenceCompleted } from "@/hooks/use-recurrence";
+import { useRecurringTodoOccurrences, useSetTodoOccurrenceCompleted } from "@/hooks/use-todo-recurrence";
 import { useProjectRemindersInRange } from "@/hooks/use-reminders";
 import { useRecurringReminderOccurrences, useSetReminderOccurrenceCompleted } from "@/hooks/use-reminder-recurrence";
+import { TodoDotIcon } from "@/components/ui/glyphs";
 import { getContrastTextColor, resolveTaskColor } from "@/lib/colors";
 import { minutesToTime, timeToMinutes, toISODate, WEEKDAY_LABELS_MON_FIRST } from "@/lib/date";
 import { layoutOverlaps, type OverlapSlot } from "@/lib/overlap-layout";
@@ -74,6 +78,8 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
 
   const { data: tasks } = useTasksInRange(rangeStart, rangeEnd);
   const { data: occurrences } = useRecurringOccurrences(rangeStart, rangeEnd);
+  const { data: todos } = useTodosInRange(rangeStart, rangeEnd);
+  const { data: todoOccurrences } = useRecurringTodoOccurrences(rangeStart, rangeEnd);
   const { data: projectReminders } = useProjectRemindersInRange(rangeStart, rangeEnd);
   const { data: reminderOccurrences } = useRecurringReminderOccurrences(rangeStart, rangeEnd);
   const { data: areas } = useAreas();
@@ -85,6 +91,8 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
   const openTask = useTaskPanelStore((s) => s.open);
   const setOccurrenceCompleted = useSetOccurrenceCompleted();
   const cancelOccurrence = useCancelOccurrence();
+  const openTodo = useTodoPanelStore((s) => s.open);
+  const setTodoOccurrenceCompleted = useSetTodoOccurrenceCompleted();
   const openReminder = useReminderPanelStore((s) => s.open);
   const setReminderOccurrenceCompleted = useSetReminderOccurrenceCompleted();
 
@@ -232,6 +240,47 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
     });
   }
 
+  // Todo 沒有時間概念，不畫進格子裡，另外用一整排「Todo」列顯示——跟全天列
+  // 平行，不分 Work/Personal 兩欄（Todo 本身有 area_id，用來算要不要顯示）。
+  type TodoMarker = { id: string; title: string; color: string; completed: boolean; date: string; onToggle: () => void };
+  const todoMarkers: TodoMarker[] = [];
+  for (const t of todos ?? []) {
+    if (t.recurrence_rule_id) continue; // 這種改由下面的 occurrences 展開，避免重複顯示
+    if (!t.date || !isoList.includes(t.date)) continue;
+    const areaType = areaTypeOf(t.area_id);
+    if (!isVisible(areaType, t.project_id)) continue;
+    todoMarkers.push({
+      id: t.id,
+      title: t.title,
+      color: colorFor(areaType, t.project_id),
+      completed: !!t.completed_at,
+      date: t.date,
+      // 有自己的 row 就開面板（跟全天 Task／Reminder 一致），重複展開的那次
+      // 沒有自己的 row，點一下直接切換完成。
+      onToggle: () => openTodo(t.id),
+    });
+  }
+  for (const o of todoOccurrences ?? []) {
+    if (!isoList.includes(o.date)) continue;
+    const areaType = areaTypeOf(o.masterTodo.area_id);
+    if (!isVisible(areaType, o.masterTodo.project_id)) continue;
+    todoMarkers.push({
+      id: o.id,
+      title: o.title,
+      color: colorFor(areaType, o.masterTodo.project_id),
+      completed: o.completed,
+      date: o.date,
+      onToggle: () =>
+        setTodoOccurrenceCompleted.mutate({
+          ruleId: o.masterTodo.recurrence_rule_id!,
+          todoId: o.masterTodo.id,
+          date: o.date,
+          completed: !o.completed,
+        }),
+    });
+  }
+  const hasTodos = todoMarkers.length > 0;
+
   const dateGroups = isoList.map((iso, i) => {
     const dayBlocks = blocks.filter((b) => b.date === iso);
     const dayReminders = reminderMarkers.filter((r) => r.date === iso);
@@ -275,6 +324,9 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
       patch: {
         scheduled_start: minutesToTime(startMin),
         scheduled_end: minutesToTime(startMin + height),
+        // height 本身就是這個色塊目前的分鐘數，拖曳/縮放完直接拿來當預計工時，
+        // 不用另外手動填。
+        estimated_minutes: height,
       },
     });
   }
@@ -344,6 +396,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
         scheduled_date: column.date,
         scheduled_start: minutesToTime(startMin),
         scheduled_end: minutesToTime(startMin + 60),
+        estimated_minutes: 60,
       })
       .then((task) => {
         // 不直接開面板——手滑點到空白處很常見，開面板反而更麻煩。改成跳個
@@ -505,6 +558,34 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
           </div>
         ))}
       </div>
+
+      {hasTodos && (
+        <div className="flex border-b border-neutral-200 text-xs">
+          <div className="w-12 shrink-0 px-1.5 py-2 text-neutral-400">Todo</div>
+          {dateGroups.map((g) => (
+            <div key={g.iso} className="flex flex-1 flex-wrap items-center gap-1 border-l border-neutral-200 px-1.5 py-1.5">
+              {todoMarkers
+                .filter((t) => t.date === g.iso)
+                .map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={t.onToggle}
+                    className="flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 font-medium"
+                    style={{
+                      borderColor: t.completed ? "#d1d5db" : t.color,
+                      color: t.completed ? "#9ca3af" : t.color,
+                      textDecoration: t.completed ? "line-through" : "none",
+                    }}
+                  >
+                    <TodoDotIcon className="h-2.5 w-2.5 shrink-0" />
+                    <span className="truncate">{t.title}</span>
+                  </button>
+                ))}
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="flex border-b border-neutral-200">
         <div className="w-12 shrink-0" />
         {dateGroups.map((g) => (
