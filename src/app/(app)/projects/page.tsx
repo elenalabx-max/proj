@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useAreas } from "@/hooks/use-areas";
 import { useProjects } from "@/hooks/use-projects";
 import { useTaskCountsByProject } from "@/hooks/use-tasks";
-import { projectStatusLabel } from "@/lib/types";
+import { projectStatusLabel, projectStatusSortRank } from "@/lib/types";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import type { AreaType } from "@/lib/types";
 
@@ -38,7 +38,7 @@ function ProjectsContent() {
       if (sortKey === "created_desc") return b.created_at.localeCompare(a.created_at);
       if (sortKey === "created_asc") return a.created_at.localeCompare(b.created_at);
       if (sortKey === "name") return a.name.localeCompare(b.name);
-      if (sortKey === "status") return a.status.localeCompare(b.status);
+      if (sortKey === "status") return projectStatusSortRank(a) - projectStatusSortRank(b);
       return progressOf(b.id) - progressOf(a.id);
     });
     return sorted;

@@ -171,3 +171,19 @@ export function projectStatusLabel(project: Pick<Project, "status" | "start_date
   if (project.status === "active" && !project.start_date && !project.due_date) return "尚未開始";
   return PROJECT_STATUS_LABEL[project.status];
 }
+
+// 依「狀態」排序時不能直接比較 status 這個 enum 字串本身——alphabetical 順序
+// 沒有意義，而且「尚未開始」根本不是真的存進 DB 的狀態（跟「進行中」共用
+// active），照 status 排會被混在一起分不開。改成照 projectStatusLabel()
+// 算出來的顯示文字給一個有邏輯的順序：尚未開始 → 進行中 → 暫停 → 已完成 → 已封存。
+const PROJECT_STATUS_SORT_RANK: Record<string, number> = {
+  尚未開始: 0,
+  進行中: 1,
+  暫停: 2,
+  已完成: 3,
+  已封存: 4,
+};
+
+export function projectStatusSortRank(project: Pick<Project, "status" | "start_date" | "due_date">): number {
+  return PROJECT_STATUS_SORT_RANK[projectStatusLabel(project)] ?? 99;
+}
