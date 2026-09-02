@@ -49,10 +49,12 @@ export function AuthForm({ mode }: { mode: Mode }) {
 
   async function handleGoogle() {
     setError(null);
-    await supabase.auth.signInWithOAuth({
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
+    // 原本沒檢查回傳的 error，失敗會完全沒反應、使用者根本不知道發生什麼事。
+    if (error) setError(error.message);
   }
 
   return (
