@@ -8,6 +8,7 @@ import { useProjects } from "@/hooks/use-projects";
 import { TASK_STATUS_LABEL, type Area, type Project, type Task, type TaskStatus } from "@/lib/types";
 import { minutesToTime, timeToMinutes } from "@/lib/date";
 import { Checkbox } from "@/components/ui/checkbox";
+import { TimePicker } from "@/components/ui/time-picker";
 import { AssigneeSection } from "./assignee-section";
 import { TimeLogSection } from "./time-log-section";
 import { SubtaskSection } from "./subtask-section";
@@ -216,25 +217,20 @@ function TaskPanelBody({
 
           {!task.is_all_day && (
             <div className="flex items-center gap-2">
-              <input
-                type="time"
-                value={task.scheduled_start ?? ""}
-                onChange={(e) => {
-                  const start = e.target.value || null;
+              <TimePicker
+                value={task.scheduled_start}
+                onChange={(start) => {
                   // 只設了開始時間、還沒設結束時間的話，先幫忙補預設 1 小時，使用者可以再自己改。
-                  const end = start && !task.scheduled_end ? minutesToTime(timeToMinutes(start) + 60) : task.scheduled_end;
+                  const end = !task.scheduled_end ? minutesToTime(timeToMinutes(start) + 60) : task.scheduled_end;
                   updateTask.mutate({ id: task.id, patch: { scheduled_start: start, scheduled_end: end } });
                 }}
-                className="w-full rounded-md border border-neutral-300 px-2 py-1.5"
+                className="flex-1"
               />
               <span className="text-neutral-400">–</span>
-              <input
-                type="time"
-                value={task.scheduled_end ?? ""}
-                onChange={(e) =>
-                  updateTask.mutate({ id: task.id, patch: { scheduled_end: e.target.value || null } })
-                }
-                className="w-full rounded-md border border-neutral-300 px-2 py-1.5"
+              <TimePicker
+                value={task.scheduled_end}
+                onChange={(end) => updateTask.mutate({ id: task.id, patch: { scheduled_end: end } })}
+                className="flex-1"
               />
             </div>
           )}

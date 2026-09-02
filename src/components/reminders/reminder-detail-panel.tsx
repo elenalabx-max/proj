@@ -5,6 +5,7 @@ import { useReminderPanelStore } from "@/stores/reminder-panel";
 import { useReminder, useUpdateReminder, useDeleteReminder } from "@/hooks/use-reminders";
 import { useProjects } from "@/hooks/use-projects";
 import { Checkbox } from "@/components/ui/checkbox";
+import { TimePicker } from "@/components/ui/time-picker";
 import { RepeatSection } from "./repeat-section";
 import type { Project, Reminder } from "@/lib/types";
 
@@ -123,14 +124,13 @@ function ReminderPanelBody({
             className="w-full rounded-md border border-neutral-300 px-2 py-1.5"
           />
           {!reminder.is_all_day && (
-            <input
-              type="time"
+            <TimePicker
               value={time}
-              onChange={(e) => {
-                setTime(e.target.value);
-                updateReminder.mutate({ id: reminder.id, patch: { remind_at: combineLocal(date, e.target.value) } });
+              onChange={(t) => {
+                setTime(t);
+                updateReminder.mutate({ id: reminder.id, patch: { remind_at: combineLocal(date, t) } });
               }}
-              className="w-full rounded-md border border-neutral-300 px-2 py-1.5"
+              className="flex-1"
             />
           )}
         </div>
