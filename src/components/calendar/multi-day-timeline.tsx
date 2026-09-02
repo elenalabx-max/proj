@@ -103,6 +103,12 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
   const isProjectVisible = (id: string) => !hiddenProjectIds.has(id);
 
   const [overridePos, setOverridePos] = useState<{ blockId: string; top: number; height: number } | null>(null);
+  // onPointerMove/onPointerUp 是透過 window.addEventListener 掛上去的，掛上當下
+  // 那個 render 的 closure 會一直用到 removeEventListener 為止，中途 setOverridePos
+  // 觸發的重新 render 不會讓已經掛上的 listener 換成新的 closure——所以 onPointerUp
+  // 讀 overridePos 這個 state 永遠會拿到「剛開始拖曳、還沒動過」那個舊值（null）。
+  // 用 ref 額外存一份最新值，onPointerUp 才讀得到真正拖曳完的位置。
+  const overridePosRef = useRef<{ blockId: string; top: number; height: number } | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const movedRef = useRef(false);
   // 點空白處新增的 Task 常常是手滑點到，先不開面板，改跳一個幾秒內可以直接
@@ -331,6 +337,11 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
     });
   }
 
+  function applyOverridePos(pos: { blockId: string; top: number; height: number } | null) {
+    overridePosRef.current = pos;
+    setOverridePos(pos);
+  }
+
   function onPointerMove(e: PointerEvent) {
     const d = dragRef.current;
     if (!d) return;
@@ -339,11 +350,11 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
     if (d.mode === "move") {
       let top = snap(d.startTop + dy);
       top = Math.max(0, Math.min(top, GRID_HEIGHT - d.height));
-      setOverridePos({ blockId: d.blockId, top, height: d.height });
+      applyOverridePos({ blockId: d.blockId, top, height: d.height });
     } else {
       let height = snap(d.startHeight + dy);
       height = Math.max(SNAP, Math.min(height, GRID_HEIGHT - d.top));
-      setOverridePos({ blockId: d.blockId, top: d.top, height });
+      applyOverridePos({ blockId: d.blockId, top: d.top, height });
     }
   }
 
@@ -356,12 +367,12 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
         openTask(d.blockId);
       } else if (movedRef.current) {
         const block = allColumns.flatMap((c) => c.blocks).find((b) => b.id === d.blockId);
-        const pos = overridePos;
+        const pos = overridePosRef.current;
         if (block?.realTask && pos) commit(block.realTask, pos.top, pos.height);
       }
     }
     dragRef.current = null;
-    setOverridePos(null);
+    applyOverridePos(null);
   }
 
   function startMove(e: React.PointerEvent, block: Block) {

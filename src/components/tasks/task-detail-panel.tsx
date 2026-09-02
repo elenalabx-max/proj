@@ -220,11 +220,17 @@ function TaskPanelBody({
               <TimePicker
                 value={task.scheduled_start}
                 onChange={(start) => {
-                  // 只設了開始時間、還沒設結束時間的話，先幫忙補預設 1 小時，使用者可以再自己改。
-                  const end = !task.scheduled_end ? minutesToTime(timeToMinutes(start) + 60) : task.scheduled_end;
+                  // 改開始時間要維持原本的時長：原本 13:00–14:00 改成 14:00 開始，
+                  // 結束時間要跟著位移成 15:00，不能卡在原本的絕對結束時間；
+                  // 還沒排過時間的話才用預設 1 小時。
+                  const durationMin =
+                    task.scheduled_start && task.scheduled_end
+                      ? timeToMinutes(task.scheduled_end) - timeToMinutes(task.scheduled_start)
+                      : 60;
+                  const end = minutesToTime(timeToMinutes(start) + durationMin);
                   updateTask.mutate({
                     id: task.id,
-                    patch: { scheduled_start: start, scheduled_end: end, estimated_minutes: timeToMinutes(end) - timeToMinutes(start) },
+                    patch: { scheduled_start: start, scheduled_end: end, estimated_minutes: durationMin },
                   });
                 }}
                 className="flex-1"
