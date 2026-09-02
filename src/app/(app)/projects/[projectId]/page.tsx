@@ -215,7 +215,7 @@ function ProjectPageBody({ project, tasks }: { project: Project; tasks: Task[] }
 function PropertyRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-3">
-      <span className="w-16 shrink-0 text-xs text-neutral-400">{label}</span>
+      <span className="w-24 shrink-0 whitespace-nowrap text-xs text-neutral-400">{label}</span>
       <div className="min-w-0 flex-1">{children}</div>
     </div>
   );

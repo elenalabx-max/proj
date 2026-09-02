@@ -27,7 +27,7 @@ export function ProjectEntityProgress({
 
   return (
     <div className="flex items-center gap-3">
-      <span className="w-16 shrink-0 text-xs text-neutral-400">{label}</span>
+      <span className="w-24 shrink-0 whitespace-nowrap text-xs text-neutral-400">{label}</span>
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <div className="h-1.5 w-32 overflow-hidden rounded-full bg-neutral-100">
           <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
