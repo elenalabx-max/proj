@@ -2,7 +2,7 @@
 
 import { isToday } from "date-fns";
 import { useTasksInRange } from "@/hooks/use-calendar-tasks";
-import { useFollowUpsInRange } from "@/hooks/use-tasks";
+import { useFollowUpsInRange, followUpLabel } from "@/hooks/use-tasks";
 import { useTodosInRange } from "@/hooks/use-todos";
 import { useRemindersInRange } from "@/hooks/use-reminders";
 import { useRecurringOccurrences, useSetOccurrenceCompleted } from "@/hooks/use-recurrence";
@@ -101,7 +101,7 @@ export function WeekGrid({ dates }: { dates: Date[] }) {
         kind: "followup",
         id: t.id,
         date: iso,
-        title: t.title,
+        title: followUpLabel(t),
         color: colorOf(t),
         timeLabel: hhmm,
         sortKey: hhmm,

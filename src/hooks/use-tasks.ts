@@ -238,10 +238,18 @@ export function useOverdueTasks() {
   });
 }
 
+export type TaskWithAssignee = Task & { people: { name: string } | null };
+
+// Follow-up 在 Calendar／四象限上要看得出「交辦給誰」，不是只有任務名稱。
+export function followUpLabel(t: TaskWithAssignee): string {
+  return `${t.people?.name ?? "未指定"} - ${t.title}`;
+}
+
 // Follow-up 要出現在 Calendar 上（跟 Reminder 呈現方式一致，見交辦/Waiting
 // 那邊的討論）——只抓還在等待中的（status='waiting'），對方完成或取消交辦後
 // Follow-up 就不該再繼續佔著 Calendar。用 follow_up_at 本身查範圍，不是
-// scheduled_date，所以就算這個 Task 完全沒排定時間也能顯示。
+// scheduled_date，所以就算這個 Task 完全沒排定時間也能顯示。連帶抓 assignee
+// 名字，Calendar 上要顯示「交辦人 - 任務名稱」，不是只有任務名稱。
 export function useFollowUpsInRange(start: string, end: string) {
   const { user } = useUser();
 
@@ -251,7 +259,7 @@ export function useFollowUpsInRange(start: string, end: string) {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("tasks")
-        .select("*")
+        .select("*, people(name)")
         .eq("status", "waiting")
         .not("follow_up_at", "is", null)
         .gte("follow_up_at", `${start}T00:00:00`)
@@ -259,13 +267,11 @@ export function useFollowUpsInRange(start: string, end: string) {
         .is("archived_at", null)
         .order("follow_up_at", { ascending: true });
       if (error) throw error;
-      return data as Task[];
+      return data as TaskWithAssignee[];
     },
     enabled: !!user,
   });
 }
-
-export type TaskWithAssignee = Task & { people: { name: string } | null };
 
 // Waiting：已交辦、還沒到 Follow-up 時間（或根本沒設）的任務——單純列出讓你知道還欠什麼。
 export function useWaitingTasks() {

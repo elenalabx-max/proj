@@ -67,7 +67,9 @@ export function useInboxTodos() {
   });
 }
 
-// 還在遺忘中、還沒到期的 Todo（跟 useInboxTodos 的條件互補）。
+// 當天的 Todo，不管完不完成都抓——跟 Reminder 的 useRemindersOnDate 一致，
+// 完成的當天還是留著（畫刪除線），不要一勾完成就整個消失。哪裡不想看到完成
+// 的（例如四象限），自己在 filter 掉，不要在這裡先擋掉。
 export function useTodosForDate(date: string) {
   const { user } = useUser();
 
@@ -79,7 +81,6 @@ export function useTodosForDate(date: string) {
         .from("todos")
         .select("*")
         .eq("date", date)
-        .is("completed_at", null)
         .is("archived_at", null)
         .order("created_at", { ascending: true });
       if (error) throw error;

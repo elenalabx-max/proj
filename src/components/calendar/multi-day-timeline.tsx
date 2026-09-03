@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { isToday } from "date-fns";
 import { useTasksInRange } from "@/hooks/use-calendar-tasks";
-import { useArchiveTask, useCreateTask, useFollowUpsInRange, useUpdateTask } from "@/hooks/use-tasks";
+import { useArchiveTask, useCreateTask, useFollowUpsInRange, useUpdateTask, followUpLabel } from "@/hooks/use-tasks";
 import { useTodosInRange } from "@/hooks/use-todos";
 import { useAreas } from "@/hooks/use-areas";
 import { useProjects } from "@/hooks/use-projects";
@@ -283,7 +283,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
 
     followUpMarkers.push({
       id: t.id,
-      title: t.title,
+      title: followUpLabel(t),
       time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
       top: minutesOfDay - GRID_START_MIN,
       color: colorFor(areaType, t.project_id),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/hooks/use-user";
@@ -71,7 +71,15 @@ function useCompletedReminders() {
   });
 }
 
-type Row = { kind: "task" | "todo" | "reminder"; id: string; title: string; completedAt: string };
+type Row = { kind: "task" | "todo" | "reminder"; id: string; title: string; completedAt: string | null };
+
+type TabKey = "all" | "todo" | "task" | "reminder";
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "all", label: "全部" },
+  { key: "todo", label: "Todo" },
+  { key: "task", label: "Task" },
+  { key: "reminder", label: "Reminder" },
+];
 
 export default function CompletedPage() {
   const { data: tasks, isLoading: tasksLoading } = useCompletedTasks();
@@ -84,18 +92,21 @@ export default function CompletedPage() {
   const isLoading = tasksLoading || todosLoading || remindersLoading;
 
   const rows: Row[] = useMemo(() => {
-    const taskRows: Row[] = (tasks ?? []).map((t) => ({ kind: "task", id: t.id, title: t.title, completedAt: t.completed_at! }));
-    const todoRows: Row[] = (todos ?? []).map((t) => ({ kind: "todo", id: t.id, title: t.title, completedAt: t.completed_at! }));
+    // Task 的 completed_at 沒有 DB constraint 強制一定要有值，狀態是 completed
+    // 不代表這欄一定不是 null——保留 null，顯示時再擋，不要當成 epoch 硬算日期。
+    const taskRows: Row[] = (tasks ?? []).map((t) => ({ kind: "task", id: t.id, title: t.title, completedAt: t.completed_at }));
+    const todoRows: Row[] = (todos ?? []).map((t) => ({ kind: "todo", id: t.id, title: t.title, completedAt: t.completed_at }));
     const reminderRows: Row[] = (reminders ?? []).map((r) => ({
       kind: "reminder",
       id: r.id,
       title: r.title ?? r.note ?? "提醒",
-      completedAt: r.completed_at!,
+      completedAt: r.completed_at,
     }));
-    // Task 的 completed_at 沒有 DB constraint 強制一定要有值，狀態是 completed
-    // 不代表這欄一定不是 null，排序前保底轉成空字串，不要整個 crash。
     return [...taskRows, ...todoRows, ...reminderRows].sort((a, b) => (b.completedAt ?? "").localeCompare(a.completedAt ?? ""));
   }, [tasks, todos, reminders]);
+
+  const [tab, setTab] = useState<TabKey>("all");
+  const visibleRows = tab === "all" ? rows : rows.filter((r) => r.kind === tab);
 
   function openRow(row: Row) {
     if (row.kind === "task") openTask(row.id);
@@ -110,11 +121,29 @@ export default function CompletedPage() {
         <p className="mt-1 text-sm text-neutral-500">已經完成的 Task／Todo／提醒（各自最近 200 筆）。</p>
       </div>
 
+      <div className="flex w-fit gap-1 rounded-md border border-neutral-200 bg-white p-0.5">
+        {TABS.map((t) => {
+          const count = t.key === "all" ? rows.length : rows.filter((r) => r.kind === t.key).length;
+          return (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`rounded px-3 py-1 text-sm font-medium ${
+                tab === t.key ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-100"
+              }`}
+            >
+              {t.label}
+              {!!count && <span className="ml-1 text-xs opacity-70">({count})</span>}
+            </button>
+          );
+        })}
+      </div>
+
       {isLoading && <p className="text-sm text-neutral-500">載入中…</p>}
-      {!isLoading && rows.length === 0 && <p className="text-sm text-neutral-400">還沒有完成的項目。</p>}
+      {!isLoading && visibleRows.length === 0 && <p className="text-sm text-neutral-400">還沒有完成的項目。</p>}
 
       <div className="divide-y divide-neutral-100 rounded-lg border border-neutral-200 bg-white">
-        {rows.map((r) => (
+        {visibleRows.map((r) => (
           <button
             key={`${r.kind}:${r.id}`}
             onClick={() => openRow(r)}
@@ -126,7 +155,9 @@ export default function CompletedPage() {
                 {r.kind === "task" ? "Task" : r.kind === "todo" ? "Todo" : "提醒"}
               </span>
             </span>
-            <span className="shrink-0 text-xs text-neutral-400">{new Date(r.completedAt).toLocaleDateString("zh-TW")}</span>
+            <span className="shrink-0 text-xs text-neutral-400">
+              {r.completedAt ? new Date(r.completedAt).toLocaleDateString("zh-TW") : "—"}
+            </span>
           </button>
         ))}
       </div>

@@ -137,7 +137,19 @@ function TaskPanelBody({
           <label className="mb-1 block text-xs font-medium text-neutral-500">Status</label>
           <select
             value={task.status}
-            onChange={(e) => updateTask.mutate({ id: task.id, patch: { status: e.target.value as TaskStatus } })}
+            onChange={(e) => {
+              const status = e.target.value as TaskStatus;
+              // 手動把狀態切成「完成」/切離「完成」時，completed_at 要跟著設/清掉，
+              // 不然 Completed 頁面拿到 completed_at=null 卻標記完成的資料，
+              // 排序、顯示日期都會壞掉（見 completed/page.tsx 的防呆註解）。
+              updateTask.mutate({
+                id: task.id,
+                patch:
+                  status === "completed"
+                    ? { status, completed_at: new Date().toISOString() }
+                    : { status, completed_at: task.status === "completed" ? null : task.completed_at },
+              });
+            }}
             className="w-full rounded-md border border-neutral-300 px-2 py-1.5"
           >
             {STATUS_OPTIONS.map((s) => (

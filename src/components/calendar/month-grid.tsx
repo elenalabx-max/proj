@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { isSameMonth, isToday } from "date-fns";
 import { useTasksInRange } from "@/hooks/use-calendar-tasks";
-import { useFollowUpsInRange } from "@/hooks/use-tasks";
+import { useFollowUpsInRange, followUpLabel } from "@/hooks/use-tasks";
 import { useTodosInRange } from "@/hooks/use-todos";
 import { useRemindersInRange } from "@/hooks/use-reminders";
 import { useRecurringOccurrences } from "@/hooks/use-recurrence";
@@ -59,7 +59,7 @@ export function MonthGrid({ reference, dates }: { reference: Date; dates: Date[]
     .map((t) => {
       const d = new Date(t.follow_up_at!);
       const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      return { kind: "followup", id: t.id, date: iso, title: t.title, color: colorOf(t) };
+      return { kind: "followup", id: t.id, date: iso, title: followUpLabel(t), color: colorOf(t) };
     });
 
   const reminderItems: MonthItem[] = (reminders ?? [])

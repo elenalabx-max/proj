@@ -117,10 +117,16 @@ export default function TodayPage() {
           {literalTodos.length === 0 && (todoOccurrences?.length ?? 0) === 0 && <Empty />}
           {literalTodos.map((t) => (
             <div key={t.id} className="flex items-center gap-1.5 text-xs text-neutral-800">
-              <button type="button" onClick={() => completeTodo.mutate({ id: t.id, completed: true })}>
-                <CheckboxIcon checked={false} />
+              <button
+                type="button"
+                onClick={() => completeTodo.mutate({ id: t.id, completed: !t.completed_at })}
+              >
+                <CheckboxIcon checked={!!t.completed_at} />
               </button>
-              <button onClick={() => openTodo(t.id)} className="min-w-0 flex-1 truncate text-left hover:underline">
+              <button
+                onClick={() => openTodo(t.id)}
+                className={`min-w-0 flex-1 truncate text-left hover:underline ${t.completed_at ? "text-neutral-400 line-through" : ""}`}
+              >
                 {t.title}
               </button>
             </div>

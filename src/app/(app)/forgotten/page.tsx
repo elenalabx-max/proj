@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useForgottenTasks, useOverdueTasks, useUpdateTask } from "@/hooks/use-tasks";
 import { useForgottenTodos, useOverdueTodos, useUpdateTodo } from "@/hooks/use-todos";
 import { useOverdueReminders } from "@/hooks/use-reminders";
@@ -15,6 +15,14 @@ type Row =
   | { kind: "todo"; id: string; title: string; data: Todo; auto: boolean }
   | { kind: "task"; id: string; title: string; data: Task; auto: boolean }
   | { kind: "reminder"; id: string; title: string; data: Reminder; auto: true };
+
+type TabKey = "all" | "todo" | "task" | "reminder";
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "all", label: "全部" },
+  { key: "todo", label: "Todo" },
+  { key: "task", label: "Task" },
+  { key: "reminder", label: "Reminder" },
+];
 
 function fmtForgottenUntil(iso: string | null) {
   if (!iso) return "無限期";
@@ -81,21 +89,43 @@ export default function ForgottenPage() {
 
   const loading = tasksLoading || todosLoading || overdueTasksLoading || overdueTodosLoading || overdueRemindersLoading;
 
+  const [tab, setTab] = useState<TabKey>("all");
+  const visibleRows = tab === "all" ? rows : rows.filter((r) => r.kind === tab);
+
   return (
     <div className="mx-auto max-w-2xl space-y-4">
       <div>
         <h1 className="text-xl font-semibold text-neutral-900">Forgotten</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          還沒完成，但現在不想看到的事情。手動遺忘到期會自動回到 Inbox；
-          標「逾期」的是自動判定——有排定日期看排定日期，沒有才看 Due Date。這裡不會一直顯示未完成數量提醒你。
-        </p>
+        <p className="mt-1 text-sm text-neutral-500">還沒完成，但現在不想看到的事情，不會一直用未完成數量提醒你。</p>
+        <ul className="mt-1 space-y-0.5 text-xs text-neutral-400">
+          <li>手動遺忘：到期會自動回到 Inbox。</li>
+          <li>「逾期」（自動判定）：有排定日期看排定日期，沒有才看 Due Date。</li>
+        </ul>
+      </div>
+
+      <div className="flex w-fit gap-1 rounded-md border border-neutral-200 bg-white p-0.5">
+        {TABS.map((t) => {
+          const count = t.key === "all" ? rows.length : rows.filter((r) => r.kind === t.key).length;
+          return (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`rounded px-3 py-1 text-sm font-medium ${
+                tab === t.key ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-100"
+              }`}
+            >
+              {t.label}
+              {!!count && <span className="ml-1 text-xs opacity-70">({count})</span>}
+            </button>
+          );
+        })}
       </div>
 
       {loading && <p className="text-sm text-neutral-500">載入中…</p>}
-      {!loading && rows.length === 0 && <p className="text-sm text-neutral-400">遺忘箱是空的。</p>}
+      {!loading && visibleRows.length === 0 && <p className="text-sm text-neutral-400">遺忘箱是空的。</p>}
 
       <div className="divide-y divide-neutral-100 rounded-lg border border-neutral-200 bg-white">
-        {rows.map((r) => (
+        {visibleRows.map((r) => (
           <div key={`${r.kind}:${r.auto ? "auto" : "manual"}:${r.id}`} className="flex items-center justify-between px-4 py-2.5">
             <div className="flex min-w-0 items-center gap-2">
               <button

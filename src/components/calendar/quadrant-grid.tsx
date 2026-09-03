@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import { useTasksInRange } from "@/hooks/use-calendar-tasks";
-import { useUpdateTask } from "@/hooks/use-tasks";
+import { useFollowUpsInRange, useUpdateTask, followUpLabel } from "@/hooks/use-tasks";
 import { useTodosForDate, useUpdateTodo } from "@/hooks/use-todos";
 import { useRemindersOnDate, useUpdateReminder } from "@/hooks/use-reminders";
 import { useRecurringOccurrences } from "@/hooks/use-recurrence";
@@ -22,8 +22,8 @@ const QUADRANTS = [
   { key: "ninu", important: false, urgent: false, label: "不重要且不緊急", color: "#6b7280", icon: "M2 3.5h12v3H2zM3 6.5V12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6.5M6.5 9h3" },
 ] as const;
 
-type ItemKind = "task" | "todo" | "reminder";
-const KIND_LABEL: Record<ItemKind, string> = { task: "Task", todo: "Todo", reminder: "提醒" };
+type ItemKind = "task" | "todo" | "reminder" | "followup";
+const KIND_LABEL: Record<ItemKind, string> = { task: "Task", todo: "Todo", reminder: "提醒", followup: "Follow-up" };
 
 type QuadrantItem = {
   kind: ItemKind;
@@ -46,6 +46,7 @@ type DragItem = { kind: ItemKind; id: string };
 export function QuadrantGrid({ date }: { date: Date }) {
   const iso = toISODate(date);
   const { data: tasks } = useTasksInRange(iso, iso);
+  const { data: followUps } = useFollowUpsInRange(iso, iso);
   const { data: todos } = useTodosForDate(iso);
   const { data: reminders } = useRemindersOnDate(iso);
   const { data: taskOccurrences } = useRecurringOccurrences(iso, iso);
@@ -91,6 +92,7 @@ export function QuadrantGrid({ date }: { date: Date }) {
 
   const todoItems: QuadrantItem[] = (todos ?? [])
     .filter((t) => !t.recurrence_rule_id)
+    .filter((t) => !t.completed_at) // 四象限是分類用的，完成的不用留著佔位置
     .filter((t) => passesFilter(areaTypeOf(t), t.project_id))
     .map((t) => ({
       kind: "todo",
@@ -121,6 +123,24 @@ export function QuadrantGrid({ date }: { date: Date }) {
       areaType: reminderResolver.areaTypeOf(r),
       projectName: reminderResolver.projectOf(r)?.name ?? null,
       onOpen: () => openReminder(r.id),
+    }));
+
+  // Follow-up 是 Task 本身，直接用 useTaskColorResolver 就能算顏色/Area，不用
+  // 像 Reminder 繞道 Project。四象限用它自己的 important/urgent 分類，跟一般
+  // Task 一致——拖曳到別的象限一樣是改這筆 Task 的欄位。
+  const followUpItems: QuadrantItem[] = (followUps ?? [])
+    .filter((t) => passesFilter(areaTypeOf(t), t.project_id))
+    .map((t) => ({
+      kind: "followup",
+      id: t.id,
+      title: followUpLabel(t),
+      subtitle: new Date(t.follow_up_at!).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" }),
+      important: t.important,
+      urgent: t.urgent,
+      color: colorOf(t),
+      areaType: areaTypeOf(t),
+      projectName: projectOf(t)?.name ?? null,
+      onOpen: () => openTask(t.id),
     }));
 
   // 重複展開出來的那次，important/urgent／點開／拖曳都對應到 master 那筆
@@ -175,6 +195,7 @@ export function QuadrantGrid({ date }: { date: Date }) {
     ...taskItems,
     ...todoItems,
     ...reminderItems,
+    ...followUpItems,
     ...taskOccurrenceItems,
     ...todoOccurrenceItems,
     ...reminderOccurrenceItems,
@@ -188,7 +209,7 @@ export function QuadrantGrid({ date }: { date: Date }) {
     const d = dragRef.current;
     dragRef.current = null;
     if (!d) return;
-    if (d.kind === "task") updateTask.mutate({ id: d.id, patch: { important, urgent } });
+    if (d.kind === "task" || d.kind === "followup") updateTask.mutate({ id: d.id, patch: { important, urgent } });
     else if (d.kind === "todo") updateTodo.mutate({ id: d.id, patch: { important, urgent } });
     else updateReminder.mutate({ id: d.id, patch: { important, urgent } });
   }
