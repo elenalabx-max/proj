@@ -16,7 +16,14 @@ import { toISODate, weekdayLabels } from "@/lib/date";
 
 const MAX_VISIBLE_PER_DAY = 3;
 
-type MonthItem = { kind: "task" | "todo" | "reminder" | "followup"; id: string; date: string; title: string; color: string };
+type MonthItem = {
+  kind: "task" | "todo" | "reminder" | "followup";
+  id: string;
+  date: string;
+  title: string;
+  color: string;
+  completed: boolean;
+};
 
 export function MonthGrid({ reference, dates }: { reference: Date; dates: Date[] }) {
   const router = useRouter();
@@ -47,19 +54,19 @@ export function MonthGrid({ reference, dates }: { reference: Date; dates: Date[]
   const taskItems: MonthItem[] = (tasks ?? [])
     .filter((t) => !t.recurrence_rule_id)
     .filter((t) => passesFilter(areaTypeOf(t), t.project_id))
-    .map((t) => ({ kind: "task", id: t.id, date: t.scheduled_date!, title: t.title, color: colorOf(t) }));
+    .map((t) => ({ kind: "task", id: t.id, date: t.scheduled_date!, title: t.title, color: colorOf(t), completed: t.status === "completed" }));
 
   const todoItems: MonthItem[] = (todos ?? [])
     .filter((t) => !t.recurrence_rule_id)
     .filter((t) => passesFilter(areaTypeOf(t), t.project_id))
-    .map((t) => ({ kind: "todo", id: t.id, date: t.date!, title: t.title, color: colorOf(t) }));
+    .map((t) => ({ kind: "todo", id: t.id, date: t.date!, title: t.title, color: colorOf(t), completed: !!t.completed_at }));
 
   const followUpItems: MonthItem[] = (followUps ?? [])
     .filter((t) => passesFilter(areaTypeOf(t), t.project_id))
     .map((t) => {
       const d = new Date(t.follow_up_at!);
       const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      return { kind: "followup", id: t.id, date: iso, title: followUpLabel(t), color: colorOf(t) };
+      return { kind: "followup", id: t.id, date: iso, title: followUpLabel(t), color: colorOf(t), completed: false };
     });
 
   const reminderItems: MonthItem[] = (reminders ?? [])
@@ -68,20 +75,20 @@ export function MonthGrid({ reference, dates }: { reference: Date; dates: Date[]
     .map((r) => {
       const d = new Date(r.remind_at);
       const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      return { kind: "reminder", id: r.id, date: iso, title: r.title ?? r.note ?? "提醒", color: reminderResolver.colorOf(r) };
+      return { kind: "reminder", id: r.id, date: iso, title: r.title ?? r.note ?? "提醒", color: reminderResolver.colorOf(r), completed: !!r.completed_at };
     });
 
   const taskOccurrenceItems: MonthItem[] = (taskOccurrences ?? [])
     .filter((o) => passesFilter(areaTypeOf(o.masterTask), o.masterTask.project_id))
-    .map((o) => ({ kind: "task", id: o.id, date: o.date, title: o.title, color: colorOf(o.masterTask) }));
+    .map((o) => ({ kind: "task", id: o.id, date: o.date, title: o.title, color: colorOf(o.masterTask), completed: o.completed }));
 
   const todoOccurrenceItems: MonthItem[] = (todoOccurrences ?? [])
     .filter((o) => passesFilter(areaTypeOf(o.masterTodo), o.masterTodo.project_id))
-    .map((o) => ({ kind: "todo", id: o.id, date: o.date, title: o.title, color: colorOf(o.masterTodo) }));
+    .map((o) => ({ kind: "todo", id: o.id, date: o.date, title: o.title, color: colorOf(o.masterTodo), completed: o.completed }));
 
   const reminderOccurrenceItems: MonthItem[] = (reminderOccurrences ?? [])
     .filter((o) => passesFilter(reminderResolver.areaTypeOf(o.masterReminder), reminderResolver.projectOf(o.masterReminder)?.id ?? null))
-    .map((o) => ({ kind: "reminder", id: o.id, date: o.date, title: o.title, color: reminderResolver.colorOf(o.masterReminder) }));
+    .map((o) => ({ kind: "reminder", id: o.id, date: o.date, title: o.title, color: reminderResolver.colorOf(o.masterReminder), completed: o.completed }));
 
   const items = [
     ...taskItems,
@@ -133,12 +140,20 @@ export function MonthGrid({ reference, dates }: { reference: Date; dates: Date[]
               <div className="space-y-0.5">
                 {shown.map((i) =>
                   i.kind === "task" ? (
-                    <div key={`${i.kind}:${i.id}`} className="flex items-center gap-1 truncate text-[10px] text-neutral-600">
-                      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: i.color }} />
+                    <div
+                      key={`${i.kind}:${i.id}`}
+                      className="flex items-center gap-1 truncate text-[10px]"
+                      style={{ color: i.completed ? "#9ca3af" : "#525252", textDecoration: i.completed ? "line-through" : "none" }}
+                    >
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: i.completed ? "#d1d5db" : i.color }} />
                       <span className="truncate">{i.title}</span>
                     </div>
                   ) : (
-                    <div key={`${i.kind}:${i.id}`} className="flex items-center gap-1 truncate text-[10px]" style={{ color: i.color }}>
+                    <div
+                      key={`${i.kind}:${i.id}`}
+                      className="flex items-center gap-1 truncate text-[10px]"
+                      style={{ color: i.completed ? "#9ca3af" : i.color, textDecoration: i.completed ? "line-through" : "none" }}
+                    >
                       {i.kind === "todo" ? (
                         <TodoDotIcon className="h-2.5 w-2.5 shrink-0" />
                       ) : i.kind === "reminder" ? (

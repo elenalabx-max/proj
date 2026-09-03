@@ -26,6 +26,7 @@ type WeekItem = {
   timeLabel: string | null;
   sortKey: string;
   onOpen: () => void;
+  completed: boolean;
   // 只有重複展開出來的那次才有值——onOpen 對這種只會切換完成/取消完成，
   // 要編輯標題/時間/Repeat 設定得改開 master 的面板。
   editId?: string;
@@ -77,6 +78,7 @@ export function WeekGrid({ dates }: { dates: Date[] }) {
       timeLabel: !t.is_all_day && t.scheduled_start ? t.scheduled_start.slice(0, 5) : null,
       sortKey: !t.is_all_day && t.scheduled_start ? t.scheduled_start : "",
       onOpen: () => openTask(t.id),
+      completed: t.status === "completed",
     }));
 
   const todoItems: WeekItem[] = (todos ?? [])
@@ -91,6 +93,7 @@ export function WeekGrid({ dates }: { dates: Date[] }) {
       timeLabel: null,
       sortKey: "",
       onOpen: () => openTodo(t.id),
+      completed: !!t.completed_at,
     }));
 
   // Follow-up 顯示在 Calendar 上跟 Reminder 呈現方式一致——用 follow_up_at
@@ -110,6 +113,7 @@ export function WeekGrid({ dates }: { dates: Date[] }) {
         timeLabel: hhmm,
         sortKey: hhmm,
         onOpen: () => openTask(t.id),
+        completed: false,
       };
     });
 
@@ -129,6 +133,7 @@ export function WeekGrid({ dates }: { dates: Date[] }) {
         timeLabel: r.is_all_day ? null : hhmm,
         sortKey: r.is_all_day ? "" : hhmm,
         onOpen: () => openReminder(r.id),
+        completed: !!r.completed_at,
       };
     });
 
@@ -153,6 +158,7 @@ export function WeekGrid({ dates }: { dates: Date[] }) {
         }),
       editId: o.masterTask.id,
       editKind: "task",
+      completed: o.completed,
     }));
 
   const todoOccurrenceItems: WeekItem[] = (todoOccurrences ?? [])
@@ -174,6 +180,7 @@ export function WeekGrid({ dates }: { dates: Date[] }) {
         }),
       editId: o.masterTodo.id,
       editKind: "todo",
+      completed: o.completed,
     }));
 
   const reminderOccurrenceItems: WeekItem[] = (reminderOccurrences ?? [])
@@ -198,6 +205,7 @@ export function WeekGrid({ dates }: { dates: Date[] }) {
           }),
         editId: o.masterReminder.id,
         editKind: "reminder",
+        completed: o.completed,
       };
     });
 
@@ -264,7 +272,11 @@ export function WeekGrid({ dates }: { dates: Date[] }) {
                       <button
                         onClick={it.onOpen}
                         className="flex w-full items-center gap-1.5 truncate rounded px-1.5 py-1 text-left text-[11px] font-medium hover:bg-neutral-50"
-                        style={{ color: it.color, paddingRight: it.editId ? 18 : undefined }}
+                        style={{
+                          color: it.completed ? "#9ca3af" : it.color,
+                          textDecoration: it.completed ? "line-through" : "none",
+                          paddingRight: it.editId ? 18 : undefined,
+                        }}
                       >
                         <Icon className="h-3 w-3 shrink-0" />
                         <span className="truncate">
@@ -276,13 +288,19 @@ export function WeekGrid({ dates }: { dates: Date[] }) {
                     </div>
                   );
                 }
-                const fg = getContrastTextColor(it.color);
+                const bg = it.completed ? "#e5e7eb" : it.color;
+                const fg = it.completed ? "#6b7280" : getContrastTextColor(it.color);
                 return (
                   <div key={`${it.kind}:${it.id}`} className="relative">
                     <button
                       onClick={it.onOpen}
                       className="flex w-full items-center gap-1 truncate rounded px-1.5 py-1 text-left text-[11px] font-medium"
-                      style={{ background: it.color, color: fg, paddingRight: it.editId ? 18 : undefined }}
+                      style={{
+                        background: bg,
+                        color: fg,
+                        textDecoration: it.completed ? "line-through" : "none",
+                        paddingRight: it.editId ? 18 : undefined,
+                      }}
                     >
                       <span className="truncate">
                         {it.timeLabel && <span className="font-mono opacity-85">{it.timeLabel} </span>}

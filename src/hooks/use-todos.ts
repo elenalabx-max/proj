@@ -90,7 +90,9 @@ export function useTodosForDate(date: string) {
   });
 }
 
-// Week/Month 行事曆格子用——跟 useTodosForDate 同一套條件，只是查一段範圍。
+// Today/3-Days、Week、Month 行事曆格子用——完成的一樣要抓，不然一打勾就整個
+// 從格子裡消失，跟 Reminder／useTodosForDate 的行為兜不起來（見 today/page.tsx
+// 的同款修法）；顯示完成與否由畫面自己決定（畫刪除線），不在查詢這層擋掉。
 export function useTodosInRange(startDate: string, endDate: string) {
   const { user } = useUser();
 
@@ -103,7 +105,6 @@ export function useTodosInRange(startDate: string, endDate: string) {
         .select("*")
         .gte("date", startDate)
         .lte("date", endDate)
-        .is("completed_at", null)
         .is("archived_at", null)
         .order("date", { ascending: true });
       if (error) throw error;
