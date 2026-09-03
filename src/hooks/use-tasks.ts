@@ -238,6 +238,33 @@ export function useOverdueTasks() {
   });
 }
 
+// Follow-up 要出現在 Calendar 上（跟 Reminder 呈現方式一致，見交辦/Waiting
+// 那邊的討論）——只抓還在等待中的（status='waiting'），對方完成或取消交辦後
+// Follow-up 就不該再繼續佔著 Calendar。用 follow_up_at 本身查範圍，不是
+// scheduled_date，所以就算這個 Task 完全沒排定時間也能顯示。
+export function useFollowUpsInRange(start: string, end: string) {
+  const { user } = useUser();
+
+  return useQuery({
+    queryKey: ["tasks", "follow-up-range", start, end, user?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("status", "waiting")
+        .not("follow_up_at", "is", null)
+        .gte("follow_up_at", `${start}T00:00:00`)
+        .lt("follow_up_at", `${end}T23:59:59.999`)
+        .is("archived_at", null)
+        .order("follow_up_at", { ascending: true });
+      if (error) throw error;
+      return data as Task[];
+    },
+    enabled: !!user,
+  });
+}
+
 export type TaskWithAssignee = Task & { people: { name: string } | null };
 
 // Waiting：已交辦、還沒到 Follow-up 時間（或根本沒設）的任務——單純列出讓你知道還欠什麼。

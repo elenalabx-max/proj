@@ -18,3 +18,15 @@ export function ReminderDotIcon({ className, style }: GlyphProps) {
     </svg>
   );
 }
+
+// 交辦的「我的 Follow-up」——時鐘 + 缺口箭頭，代表「晚一點回來看」，
+// 跟 Reminder 的鈴鐺區分開來（Follow-up 不是提醒新事情，是回頭確認舊的）。
+export function FollowUpIcon({ className, style }: GlyphProps) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} style={style} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M13.5 8A5.5 5.5 0 1 1 8 2.5" />
+      <path d="M8 5v3.3l2.3 1.3" />
+      <path d="M11 1.8 13.5 3l-.6 2.8" />
+    </svg>
+  );
+}

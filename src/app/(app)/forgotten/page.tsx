@@ -86,8 +86,8 @@ export default function ForgottenPage() {
       <div>
         <h1 className="text-xl font-semibold text-neutral-900">Forgotten</h1>
         <p className="mt-1 text-sm text-neutral-500">
-          還沒完成，但現在不想看到的事情。手動遺忘的到期會自動回到 Inbox；標「逾期」的是自動判定——
-          有設排定日期就以排定日期為準，沒設排定日期才看 Due Date。這裡不會一直顯示未完成數量提醒你。
+          還沒完成，但現在不想看到的事情。手動遺忘到期會自動回到 Inbox；
+          標「逾期」的是自動判定——有排定日期看排定日期，沒有才看 Due Date。這裡不會一直顯示未完成數量提醒你。
         </p>
       </div>
 

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { isSameMonth, isToday } from "date-fns";
 import { useTasksInRange } from "@/hooks/use-calendar-tasks";
+import { useFollowUpsInRange } from "@/hooks/use-tasks";
 import { useTodosInRange } from "@/hooks/use-todos";
 import { useRemindersInRange } from "@/hooks/use-reminders";
 import { useRecurringOccurrences } from "@/hooks/use-recurrence";
@@ -10,18 +11,19 @@ import { useRecurringTodoOccurrences } from "@/hooks/use-todo-recurrence";
 import { useRecurringReminderOccurrences } from "@/hooks/use-reminder-recurrence";
 import { useTaskColorResolver, useReminderColorResolver } from "@/hooks/use-task-color";
 import { useCalendarFilterStore } from "@/stores/calendar-filter";
-import { TodoDotIcon, ReminderDotIcon } from "@/components/ui/glyphs";
+import { TodoDotIcon, ReminderDotIcon, FollowUpIcon } from "@/components/ui/glyphs";
 import { toISODate, weekdayLabels } from "@/lib/date";
 
 const MAX_VISIBLE_PER_DAY = 3;
 
-type MonthItem = { kind: "task" | "todo" | "reminder"; id: string; date: string; title: string; color: string };
+type MonthItem = { kind: "task" | "todo" | "reminder" | "followup"; id: string; date: string; title: string; color: string };
 
 export function MonthGrid({ reference, dates }: { reference: Date; dates: Date[] }) {
   const router = useRouter();
   const start = toISODate(dates[0]);
   const end = toISODate(dates[dates.length - 1]);
   const { data: tasks } = useTasksInRange(start, end);
+  const { data: followUps } = useFollowUpsInRange(start, end);
   const { data: todos } = useTodosInRange(start, end);
   const { data: reminders } = useRemindersInRange(start, end);
   const { data: taskOccurrences } = useRecurringOccurrences(start, end);
@@ -52,6 +54,14 @@ export function MonthGrid({ reference, dates }: { reference: Date; dates: Date[]
     .filter((t) => passesFilter(areaTypeOf(t), t.project_id))
     .map((t) => ({ kind: "todo", id: t.id, date: t.date!, title: t.title, color: colorOf(t) }));
 
+  const followUpItems: MonthItem[] = (followUps ?? [])
+    .filter((t) => passesFilter(areaTypeOf(t), t.project_id))
+    .map((t) => {
+      const d = new Date(t.follow_up_at!);
+      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      return { kind: "followup", id: t.id, date: iso, title: t.title, color: colorOf(t) };
+    });
+
   const reminderItems: MonthItem[] = (reminders ?? [])
     .filter((r) => !r.recurrence_rule_id)
     .filter((r) => passesFilter(reminderResolver.areaTypeOf(r), reminderResolver.projectOf(r)?.id ?? null))
@@ -77,6 +87,7 @@ export function MonthGrid({ reference, dates }: { reference: Date; dates: Date[]
     ...taskItems,
     ...todoItems,
     ...reminderItems,
+    ...followUpItems,
     ...taskOccurrenceItems,
     ...todoOccurrenceItems,
     ...reminderOccurrenceItems,
@@ -130,8 +141,10 @@ export function MonthGrid({ reference, dates }: { reference: Date; dates: Date[]
                     <div key={`${i.kind}:${i.id}`} className="flex items-center gap-1 truncate text-[10px]" style={{ color: i.color }}>
                       {i.kind === "todo" ? (
                         <TodoDotIcon className="h-2.5 w-2.5 shrink-0" />
-                      ) : (
+                      ) : i.kind === "reminder" ? (
                         <ReminderDotIcon className="h-2.5 w-2.5 shrink-0" />
+                      ) : (
+                        <FollowUpIcon className="h-2.5 w-2.5 shrink-0" />
                       )}
                       <span className="truncate">{i.title}</span>
                     </div>

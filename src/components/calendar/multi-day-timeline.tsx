@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { isToday } from "date-fns";
 import { useTasksInRange } from "@/hooks/use-calendar-tasks";
-import { useArchiveTask, useCreateTask, useUpdateTask } from "@/hooks/use-tasks";
+import { useArchiveTask, useCreateTask, useFollowUpsInRange, useUpdateTask } from "@/hooks/use-tasks";
 import { useTodosInRange } from "@/hooks/use-todos";
 import { useAreas } from "@/hooks/use-areas";
 import { useProjects } from "@/hooks/use-projects";
@@ -16,7 +16,7 @@ import { useCancelOccurrence, useRecurringOccurrences, useSetOccurrenceCompleted
 import { useRecurringTodoOccurrences, useSetTodoOccurrenceCompleted } from "@/hooks/use-todo-recurrence";
 import { useProjectRemindersInRange } from "@/hooks/use-reminders";
 import { useRecurringReminderOccurrences, useSetReminderOccurrenceCompleted } from "@/hooks/use-reminder-recurrence";
-import { TodoDotIcon } from "@/components/ui/glyphs";
+import { TodoDotIcon, FollowUpIcon } from "@/components/ui/glyphs";
 import { getContrastTextColor, resolveTaskColor } from "@/lib/colors";
 import { minutesToTime, timeToMinutes, toISODate, WEEKDAY_LABELS_MON_FIRST } from "@/lib/date";
 import { layoutOverlaps, type OverlapSlot } from "@/lib/overlap-layout";
@@ -62,7 +62,26 @@ type ReminderMarker = {
   occurrence: { ruleId: string; reminderId: string; date: string } | null;
 };
 
-type Column = { key: string; date: string; areaType: "work" | "personal"; label: string; blocks: Block[]; reminders: ReminderMarker[] };
+// 交辦的「我的 Follow-up」——用 follow_up_at 本身的時間畫在時間軸上，跟
+// Reminder 呈現方式一致，但點下去是開 Task 面板（不是切換完成，Follow-up
+// 本身沒有獨立的完成狀態，要透過 Review 頁面的動作處理）。
+type FollowUpMarker = {
+  id: string;
+  title: string;
+  time: string;
+  top: number;
+  color: string;
+};
+
+type Column = {
+  key: string;
+  date: string;
+  areaType: "work" | "personal";
+  label: string;
+  blocks: Block[];
+  reminders: ReminderMarker[];
+  followUps: FollowUpMarker[];
+};
 
 type DragState =
   | { mode: "move"; blockId: string; startY: number; startTop: number; height: number }
@@ -77,6 +96,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
   const rangeEnd = isoList[isoList.length - 1];
 
   const { data: tasks } = useTasksInRange(rangeStart, rangeEnd);
+  const { data: followUps } = useFollowUpsInRange(rangeStart, rangeEnd);
   const { data: occurrences } = useRecurringOccurrences(rangeStart, rangeEnd);
   const { data: todos } = useTodosInRange(rangeStart, rangeEnd);
   const { data: todoOccurrences } = useRecurringTodoOccurrences(rangeStart, rangeEnd);
@@ -246,6 +266,32 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
     });
   }
 
+  // Follow-up 用 area_id/project_id 直接算顏色（不用像 Reminder 繞道 Project），
+  // Task 本身就有這兩個欄位。
+  const followUpMarkers: (FollowUpMarker & { date: string; areaType: "work" | "personal" })[] = [];
+  for (const t of followUps ?? []) {
+    const areaType = areaTypeOf(t.area_id);
+    if (areaType !== "work" && areaType !== "personal") continue;
+    if (!isVisible(areaType, t.project_id)) continue;
+
+    const d = new Date(t.follow_up_at!);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const localIso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    if (!isoList.includes(localIso)) continue;
+    const minutesOfDay = d.getHours() * 60 + d.getMinutes();
+    if (minutesOfDay < GRID_START_MIN || minutesOfDay > GRID_END_MIN) continue;
+
+    followUpMarkers.push({
+      id: t.id,
+      title: t.title,
+      time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+      top: minutesOfDay - GRID_START_MIN,
+      color: colorFor(areaType, t.project_id),
+      date: localIso,
+      areaType,
+    });
+  }
+
   // Todo 沒有時間概念，不畫進格子裡，另外用一整排「Todo」列顯示——跟全天列
   // 平行，不分 Work/Personal 兩欄（Todo 本身有 area_id，用來算要不要顯示）。
   type TodoMarker = { id: string; title: string; color: string; completed: boolean; date: string; onToggle: () => void };
@@ -290,6 +336,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
   const dateGroups = isoList.map((iso, i) => {
     const dayBlocks = blocks.filter((b) => b.date === iso);
     const dayReminders = reminderMarkers.filter((r) => r.date === iso);
+    const dayFollowUps = followUpMarkers.filter((f) => f.date === iso);
     const columns: Column[] = [];
     if (showWork) {
       columns.push({
@@ -299,6 +346,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
         label: "工作",
         blocks: dayBlocks.filter((b) => !isPersonal(b)),
         reminders: dayReminders.filter((r) => r.areaType === "work"),
+        followUps: dayFollowUps.filter((f) => f.areaType === "work"),
       });
     }
     if (showPersonal) {
@@ -309,6 +357,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
         label: "個人",
         blocks: dayBlocks.filter(isPersonal),
         reminders: dayReminders.filter((r) => r.areaType === "personal"),
+        followUps: dayFollowUps.filter((f) => f.areaType === "personal"),
       });
     }
     return { iso, date: dates[i], columns };
@@ -667,6 +716,27 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
                     </svg>
                     <span className="font-mono">{r.time}</span>
                     <span className="truncate">{r.title}</span>
+                  </button>
+                ))}
+                {col.followUps.map((f, i) => (
+                  <button
+                    key={`followup:${f.id}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openTask(f.id);
+                    }}
+                    title={`${f.time} ${f.title}（我的 Follow-up）`}
+                    className="absolute left-0.5 right-0.5 z-20 flex items-center gap-1 truncate rounded border px-1.5 py-0.5 text-[10px] font-semibold shadow-sm"
+                    style={{
+                      top: f.top - 9 + (col.reminders.length + i) * 15,
+                      background: "white",
+                      borderColor: f.color,
+                      color: f.color,
+                    }}
+                  >
+                    <FollowUpIcon className="h-3 w-3 shrink-0" />
+                    <span className="font-mono">{f.time}</span>
+                    <span className="truncate">{f.title}</span>
                   </button>
                 ))}
               </div>
