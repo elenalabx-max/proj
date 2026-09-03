@@ -92,7 +92,9 @@ export default function CompletedPage() {
       title: r.title ?? r.note ?? "提醒",
       completedAt: r.completed_at!,
     }));
-    return [...taskRows, ...todoRows, ...reminderRows].sort((a, b) => b.completedAt.localeCompare(a.completedAt));
+    // Task 的 completed_at 沒有 DB constraint 強制一定要有值，狀態是 completed
+    // 不代表這欄一定不是 null，排序前保底轉成空字串，不要整個 crash。
+    return [...taskRows, ...todoRows, ...reminderRows].sort((a, b) => (b.completedAt ?? "").localeCompare(a.completedAt ?? ""));
   }, [tasks, todos, reminders]);
 
   function openRow(row: Row) {

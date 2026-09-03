@@ -20,8 +20,10 @@ export function useRecurringReminderOccurrences(start: string, end: string) {
       const { data: reminders, error } = await supabase
         .from("reminders")
         .select("*, recurrence_rules(rrule_text, starts_on, ends_on)")
-        .not("recurrence_rule_id", "is", null)
-        .is("archived_at", null);
+        .not("recurrence_rule_id", "is", null);
+      // Reminder 沒有 archived_at 這個欄位（見十一節），跟 Task/Todo 不一樣——
+      // 之前照抄那兩個的查詢寫法多加了 .is("archived_at", null)，這欄不存在，
+      // PostgREST 會直接回 400，整個查詢都失敗。
       if (error) throw error;
 
       const rows = (reminders ?? []) as ReminderWithRule[];
