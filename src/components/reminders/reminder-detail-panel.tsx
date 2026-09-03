@@ -134,7 +134,7 @@ function ReminderPanelBody({
               setDate(e.target.value);
               updateReminder.mutate({ id: reminder.id, patch: { remind_at: combineLocal(e.target.value, time) } });
             }}
-            className="w-full rounded-md border border-neutral-300 px-2 py-1.5"
+            className="min-w-0 flex-1 rounded-md border border-neutral-300 px-2 py-1.5"
           />
           {!reminder.is_all_day && (
             <TimePicker
