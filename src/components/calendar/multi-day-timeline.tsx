@@ -537,7 +537,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
               <path d="M2 8a6 6 0 0 1 10.2-4.2M2 8l1.5-2M2 8l2 1.3M14 8a6 6 0 0 1-10.2 4.2M14 8l-1.5 2M14 8l-2-1.3" />
             </svg>
           )}
-          <span className="min-w-0 flex-1 truncate font-semibold">{b.title}</span>
+          <span className="min-w-0 truncate font-semibold">{b.title}</span>
           {/* 編輯這個重複系列的入口放在名稱後面，不要疊在文字上——點色塊本身
               還是切換這一次完成/取消完成。 */}
           {b.occurrence && (
@@ -778,7 +778,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
                         <path d="M6.6 12.7a1.4 1.4 0 0 0 2.8 0" />
                       </svg>
                       <span className="font-mono">{r.time}</span>
-                      <span className="min-w-0 flex-1 truncate">{r.title}</span>
+                      <span className="min-w-0 truncate">{r.title}</span>
                     </button>
                     {r.occurrence && (
                       <button
