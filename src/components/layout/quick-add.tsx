@@ -59,6 +59,11 @@ export function QuickAdd() {
         title: pendingTitle,
         status: pendingDate ? "todo" : "inbox",
         scheduled_date: pendingDate || null,
+        // QuickAdd 這裡沒有時間選擇器，只選日期沒選時間的話，沒設 is_all_day
+        // 就會卡在「不是全天、又沒有 start/end」這種兩邊都不算的狀態——
+        // Calendar 兩種畫法都會直接跳過它，看起來就像消失了。選了日期就當
+        // 全天處理，畫在「全天」那排，要排精確時段的話再去面板改。
+        is_all_day: !!pendingDate,
         project_id: project?.id ?? null,
         area_id: project?.area_id ?? null,
       });
