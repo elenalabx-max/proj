@@ -12,7 +12,8 @@ type Mode = "todo" | "task" | "reminder";
 // 全站快速新增：只要標題，Enter 就送進 Inbox（見規劃書第 38 節）。
 // Todo／Task／提醒都是標題送出後多一步選日期（可選加 Project）才真的建立——
 // 提醒一定要有時間；Todo／Task 沒選日期就留在 Inbox（Todo: date=null，
-// Task: status='inbox'），選了日期就算排定好的。有掛 Project 才會畫在
+// Task: due_date/scheduled_date 都是 null，Inbox 現在是用日期欄位判斷，不是
+// 存進 DB 的狀態），選了日期就算排定好的。有掛 Project 才會畫在
 // Calendar 上（沒掛就不知道要畫在 Work 還 Personal 欄），Task 額外會把
 // Project 的 Area 也帶上，跟 Detail Panel 手動選 Project 的行為一致。
 export function QuickAdd() {
@@ -57,7 +58,6 @@ export function QuickAdd() {
     } else {
       createTask.mutate({
         title: pendingTitle,
-        status: pendingDate ? "todo" : "inbox",
         scheduled_date: pendingDate || null,
         // QuickAdd 這裡沒有時間選擇器，只選日期沒選時間的話，沒設 is_all_day
         // 就會卡在「不是全天、又沒有 start/end」這種兩邊都不算的狀態——

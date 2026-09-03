@@ -27,10 +27,11 @@ export type Project = {
   archived_at: string | null;
 };
 
+// 2026-09-03 調整：拿掉「收集箱」與「進行中」兩個狀態值（見規劃書第八節）。
+// 「收集箱」改成用日期欄位判斷（沒有 due_date 也沒有 scheduled_date），
+// 不再是存進 DB 的狀態；「進行中」跟「待處理」本來就沒有實質區別，直接併入 todo。
 export type TaskStatus =
-  | "inbox"
   | "todo"
-  | "in_progress"
   | "waiting"
   | "review"
   | "completed"
@@ -148,9 +149,7 @@ export type UserSettings = {
 };
 
 export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
-  inbox: "收集箱",
   todo: "待處理",
-  in_progress: "進行中",
   waiting: "待他人",
   review: "待我確認",
   completed: "完成",

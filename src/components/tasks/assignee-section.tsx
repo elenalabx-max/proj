@@ -3,14 +3,26 @@
 import { useState } from "react";
 import { useCreatePerson, usePeople } from "@/hooks/use-people";
 import { useUpdateTask } from "@/hooks/use-tasks";
+import { TimePicker } from "@/components/ui/time-picker";
+import { todayISODate } from "@/lib/date";
 import type { Task } from "@/lib/types";
 
-// datetime-local 的 value 要是 "YYYY-MM-DDTHH:mm"（本地時間，不含秒/時區）
-function toLocalInputValue(iso: string | null): string {
+function pad(n: number) {
+  return String(n).padStart(2, "0");
+}
+function toLocalDate(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+function toLocalTime(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function combineLocal(dateStr: string, timeStr: string): string | null {
+  if (!dateStr) return null;
+  return new Date(`${dateStr}T${timeStr || "00:00"}`).toISOString();
 }
 
 export function AssigneeSection({ task }: { task: Task }) {
@@ -90,34 +102,58 @@ export function AssigneeSection({ task }: { task: Task }) {
       )}
 
       {task.assignee_id && (
-        <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-2">
           <div>
             <label className="mb-1 block text-[11px] text-neutral-400">對方 Deadline</label>
-            <input
-              type="datetime-local"
-              value={toLocalInputValue(task.delegate_deadline)}
-              onChange={(e) =>
-                updateTask.mutate({
-                  id: task.id,
-                  patch: { delegate_deadline: e.target.value ? new Date(e.target.value).toISOString() : null },
-                })
-              }
-              className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-xs"
-            />
+            <div className="flex items-center gap-1.5">
+              <input
+                type="date"
+                value={toLocalDate(task.delegate_deadline)}
+                onChange={(e) =>
+                  updateTask.mutate({
+                    id: task.id,
+                    patch: { delegate_deadline: combineLocal(e.target.value, toLocalTime(task.delegate_deadline)) },
+                  })
+                }
+                className="min-w-0 flex-1 rounded-md border border-neutral-300 px-2 py-1.5 text-xs"
+              />
+              <TimePicker
+                value={toLocalTime(task.delegate_deadline) || null}
+                onChange={(t) =>
+                  updateTask.mutate({
+                    id: task.id,
+                    patch: { delegate_deadline: combineLocal(toLocalDate(task.delegate_deadline) || todayISODate(), t) },
+                  })
+                }
+                className="flex-1"
+              />
+            </div>
           </div>
           <div>
             <label className="mb-1 block text-[11px] text-neutral-400">我的 Follow-up</label>
-            <input
-              type="datetime-local"
-              value={toLocalInputValue(task.follow_up_at)}
-              onChange={(e) =>
-                updateTask.mutate({
-                  id: task.id,
-                  patch: { follow_up_at: e.target.value ? new Date(e.target.value).toISOString() : null },
-                })
-              }
-              className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-xs"
-            />
+            <div className="flex items-center gap-1.5">
+              <input
+                type="date"
+                value={toLocalDate(task.follow_up_at)}
+                onChange={(e) =>
+                  updateTask.mutate({
+                    id: task.id,
+                    patch: { follow_up_at: combineLocal(e.target.value, toLocalTime(task.follow_up_at)) },
+                  })
+                }
+                className="min-w-0 flex-1 rounded-md border border-neutral-300 px-2 py-1.5 text-xs"
+              />
+              <TimePicker
+                value={toLocalTime(task.follow_up_at) || null}
+                onChange={(t) =>
+                  updateTask.mutate({
+                    id: task.id,
+                    patch: { follow_up_at: combineLocal(toLocalDate(task.follow_up_at) || todayISODate(), t) },
+                  })
+                }
+                className="flex-1"
+              />
+            </div>
           </div>
         </div>
       )}

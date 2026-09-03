@@ -7,8 +7,11 @@ import { isTaskOverdue } from "@/lib/overdue";
 import { todayISODate } from "@/lib/date";
 import { useUser } from "./use-user";
 
-// Inbox = 還沒分類的（status='inbox'），加上「遺忘到某一天、期限已到」的那些
-// （見規劃書第 13 節：到期後自動回到 Inbox）。無限期遺忘的不會出現在這裡。
+// 2026-09-03 調整：Inbox 不再是一個存進 DB 的狀態，改成用日期欄位判斷——
+// status='todo' 但沒有 due_date 也沒有 scheduled_date，代表「還沒決定怎麼
+// 安排」。waiting/review 有自己的頁面，就算沒設日期也不會混進 Inbox。
+// 另外加上「遺忘到某一天、期限已到」的那些（見規劃書第 13 節：到期後自動回到
+// Inbox），無限期遺忘的不會出現在這裡。
 export function useInboxTasks() {
   const { user } = useUser();
   const today = todayISODate();
@@ -20,7 +23,9 @@ export function useInboxTasks() {
       const { data, error } = await supabase
         .from("tasks")
         .select("*")
-        .or(`status.eq.inbox,and(status.eq.forgotten,forgotten_until.lte.${today})`)
+        .or(
+          `and(status.eq.todo,due_date.is.null,scheduled_date.is.null),and(status.eq.forgotten,forgotten_until.lte.${today})`,
+        )
         .is("archived_at", null)
         .order("created_at", { ascending: false });
       if (error) throw error;

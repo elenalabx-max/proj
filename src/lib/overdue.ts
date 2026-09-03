@@ -9,12 +9,17 @@ const EXEMPT_STATUSES = new Set(["completed", "forgotten", "waiting"]);
 //
 // 用「日期」比對，不用「精確時間」比對：今天 14:00-16:00 的任務，過了 16:00
 // 但還是今天，不算逾期；要跨過 0 點、變成昨天的事，才算逾期。
+//
+// 2026-09-03 調整：優先順序改成「有排定日期就只看排定日期，沒排定才看 Due
+// Date」，不再是兩者各自獨立判斷（OR）。理由：已經排定的任務代表你已經決定
+// 什麼時候做，Due Date 只是背景期限，排定日期沒過就不該被判定逾期，就算
+// Due Date 已經過了也一樣。
 export function isTaskOverdue(task: Task): boolean {
   if (EXEMPT_STATUSES.has(task.status)) return false;
   const today = todayISODate();
 
-  if (task.due_date && task.due_date < today) return true;
-  if (task.scheduled_date && task.scheduled_date < today) return true;
+  if (task.scheduled_date) return task.scheduled_date < today;
+  if (task.due_date) return task.due_date < today;
   return false;
 }
 

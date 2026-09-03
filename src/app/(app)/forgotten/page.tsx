@@ -63,12 +63,13 @@ export default function ForgottenPage() {
   function restore(row: Row) {
     if (row.kind === "task") {
       // 自動遺忘（逾期）的沒有 forgotten_until 可清，要連日期一起清掉才不會一移回
-      // Inbox 又立刻被判定成逾期。
+      // Inbox 又立刻被判定成逾期。Inbox 現在是用日期欄位判斷（見 use-tasks.ts
+      // 的 useInboxTasks），status 統一回到 todo 就好，不用也不能再設成 inbox。
       updateTask.mutate({
         id: row.id,
         patch: row.auto
-          ? { status: "inbox", due_date: null, scheduled_date: null, scheduled_start: null, scheduled_end: null }
-          : { status: "inbox", forgotten_until: null },
+          ? { status: "todo", due_date: null, scheduled_date: null, scheduled_start: null, scheduled_end: null }
+          : { status: "todo", forgotten_until: null },
       });
     } else if (row.kind === "todo") {
       updateTodo.mutate({ id: row.id, patch: row.auto ? { date: null } : { forgotten_until: null } });
@@ -85,7 +86,8 @@ export default function ForgottenPage() {
       <div>
         <h1 className="text-xl font-semibold text-neutral-900">Forgotten</h1>
         <p className="mt-1 text-sm text-neutral-500">
-          還沒完成，但現在不想看到的事情。到期會自動回到 Inbox，這裡不會一直顯示未完成數量提醒你。
+          還沒完成，但現在不想看到的事情。手動遺忘的到期會自動回到 Inbox；標「逾期」的是自動判定——
+          有設排定日期就以排定日期為準，沒設排定日期才看 Due Date。這裡不會一直顯示未完成數量提醒你。
         </p>
       </div>
 
