@@ -294,7 +294,17 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
 
   // Todo 沒有時間概念，不畫進格子裡，另外用一整排「Todo」列顯示——跟全天列
   // 平行，不分 Work/Personal 兩欄（Todo 本身有 area_id，用來算要不要顯示）。
-  type TodoMarker = { id: string; title: string; color: string; completed: boolean; date: string; onToggle: () => void };
+  type TodoMarker = {
+    id: string;
+    title: string;
+    color: string;
+    completed: boolean;
+    date: string;
+    onToggle: () => void;
+    // 只有重複展開出來的那次才有值——這種沒有自己的列可以開，要編輯標題/
+    // Repeat 設定得改開 master Todo 的面板。
+    editId?: string;
+  };
   const todoMarkers: TodoMarker[] = [];
   for (const t of todos ?? []) {
     if (t.recurrence_rule_id) continue; // 這種改由下面的 occurrences 展開，避免重複顯示
@@ -329,6 +339,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
           date: o.date,
           completed: !o.completed,
         }),
+      editId: o.masterTodo.id,
     });
   }
   const hasTodos = todoMarkers.length > 0;
@@ -536,16 +547,33 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
           <div onPointerDown={(e) => startResize(e, b)} className="absolute inset-x-0 bottom-0 h-2 touch-none cursor-ns-resize" />
         )}
         {b.occurrence && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              cancelOccurrence.mutate(b.occurrence!);
-            }}
-            className="absolute top-0.5 right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-black/15 text-[9px] hover:bg-black/30"
-            title="跳過這一次"
-          >
-            ✕
-          </button>
+          <>
+            {/* 點色塊本身是切換這一次完成/取消完成；重複系列本身的標題/時間/
+                Repeat 設定要編輯，得開 master Task 的面板，兩者用左右兩個小
+                按鈕分開，不然點色塊永遠只能切換完成，摸不到編輯入口。 */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                openTask(b.occurrence!.taskId);
+              }}
+              className="absolute top-0.5 left-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-black/15 text-[9px] hover:bg-black/30"
+              title="編輯這個重複系列"
+            >
+              <svg viewBox="0 0 16 16" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M11 2.5 13.5 5 5.5 13H3v-2.5Z" />
+              </svg>
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                cancelOccurrence.mutate(b.occurrence!);
+              }}
+              className="absolute top-0.5 right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-black/15 text-[9px] hover:bg-black/30"
+              title="跳過這一次"
+            >
+              ✕
+            </button>
+          </>
         )}
       </div>
     );
@@ -570,27 +598,42 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
                       const overdue =
                         !isCompleted && b.realTask ? isTaskOverdue(b.realTask) : false;
                       return (
-                        <button
-                          key={b.id}
-                          onClick={() =>
-                            b.realTask ? openTask(b.id) : setOccurrenceCompleted.mutate({ ...b.occurrence!, completed: !b.occurrence!.completed })
-                          }
-                          className="relative block w-full truncate rounded px-2 py-1 text-left text-[11px] font-semibold"
-                          style={{
-                            background: isCompleted ? "#e5e7eb" : b.color,
-                            color: isCompleted ? "#6b7280" : getContrastTextColor(b.color),
-                          }}
-                        >
-                          {overdue && (
-                            <span
-                              title="已經過期還沒完成"
-                              className="absolute top-1 right-1 flex h-3 w-3 items-center justify-center rounded-full bg-white/90 text-[8px] leading-none font-bold text-amber-600"
+                        <div key={b.id} className="relative">
+                          <button
+                            onClick={() =>
+                              b.realTask ? openTask(b.id) : setOccurrenceCompleted.mutate({ ...b.occurrence!, completed: !b.occurrence!.completed })
+                            }
+                            className="relative block w-full truncate rounded px-2 py-1 text-left text-[11px] font-semibold"
+                            style={{
+                              background: isCompleted ? "#e5e7eb" : b.color,
+                              color: isCompleted ? "#6b7280" : getContrastTextColor(b.color),
+                            }}
+                          >
+                            {overdue && (
+                              <span
+                                title="已經過期還沒完成"
+                                className="absolute top-1 right-1 flex h-3 w-3 items-center justify-center rounded-full bg-white/90 text-[8px] leading-none font-bold text-amber-600"
+                              >
+                                !
+                              </span>
+                            )}
+                            {b.title}
+                          </button>
+                          {b.occurrence && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openTask(b.occurrence!.taskId);
+                              }}
+                              className="absolute top-0.5 left-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-black/15 text-[8px] hover:bg-black/30"
+                              title="編輯這個重複系列"
                             >
-                              !
-                            </span>
+                              <svg viewBox="0 0 16 16" className="h-2 w-2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M11 2.5 13.5 5 5.5 13H3v-2.5Z" />
+                              </svg>
+                            </button>
                           )}
-                          {b.title}
-                        </button>
+                        </div>
                       );
                     })}
                 </div>
@@ -627,19 +670,35 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
               {todoMarkers
                 .filter((t) => t.date === g.iso)
                 .map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={t.onToggle}
-                    className="flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 font-medium"
-                    style={{
-                      borderColor: t.completed ? "#d1d5db" : t.color,
-                      color: t.completed ? "#9ca3af" : t.color,
-                      textDecoration: t.completed ? "line-through" : "none",
-                    }}
-                  >
-                    <TodoDotIcon className="h-2.5 w-2.5 shrink-0" />
-                    <span className="truncate">{t.title}</span>
-                  </button>
+                  <span key={t.id} className="relative inline-flex max-w-full">
+                    <button
+                      onClick={t.onToggle}
+                      className="flex max-w-full items-center gap-1 rounded-full border py-0.5 pr-2 pl-2 font-medium"
+                      style={{
+                        borderColor: t.completed ? "#d1d5db" : t.color,
+                        color: t.completed ? "#9ca3af" : t.color,
+                        textDecoration: t.completed ? "line-through" : "none",
+                        paddingRight: t.editId ? 18 : undefined,
+                      }}
+                    >
+                      <TodoDotIcon className="h-2.5 w-2.5 shrink-0" />
+                      <span className="truncate">{t.title}</span>
+                    </button>
+                    {t.editId && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openTodo(t.editId!);
+                        }}
+                        className="absolute top-1/2 right-1 flex h-3 w-3 -translate-y-1/2 items-center justify-center rounded-full bg-black/10 text-[8px] hover:bg-black/20"
+                        title="編輯這個重複系列"
+                      >
+                        <svg viewBox="0 0 16 16" className="h-2 w-2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M11 2.5 13.5 5 5.5 13H3v-2.5Z" />
+                        </svg>
+                      </button>
+                    )}
+                  </span>
                 ))}
             </div>
           ))}
@@ -690,33 +749,47 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
                   return timedBlocks.map((b) => renderBlock(b, layout.get(b.id) ?? { col: 0, cols: 1 }));
                 })()}
                 {col.reminders.map((r, i) => (
-                  <button
-                    key={r.id}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (r.occurrence) {
-                        setReminderOccurrenceCompleted.mutate({ ...r.occurrence, completed: !r.completed });
-                      } else {
-                        openReminder(r.id);
-                      }
-                    }}
-                    title={`${r.time} ${r.title}${r.completed ? "（已完成）" : ""}`}
-                    className="absolute left-0.5 right-0.5 z-20 flex items-center gap-1 truncate rounded border px-1.5 py-0.5 text-[10px] font-semibold shadow-sm"
-                    style={{
-                      top: r.top - 9 + i * 15,
-                      background: r.completed ? "#e5e7eb" : "white",
-                      borderColor: r.completed ? "#d1d5db" : r.color,
-                      color: r.completed ? "#9ca3af" : r.color,
-                      textDecoration: r.completed ? "line-through" : "none",
-                    }}
-                  >
-                    <svg viewBox="0 0 16 16" className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M8 2.5a3.2 3.2 0 0 0-3.2 3.2c0 3.7-1.5 4.8-1.5 4.8h9.4s-1.5-1.1-1.5-4.8A3.2 3.2 0 0 0 8 2.5Z" />
-                      <path d="M6.6 12.7a1.4 1.4 0 0 0 2.8 0" />
-                    </svg>
-                    <span className="font-mono">{r.time}</span>
-                    <span className="truncate">{r.title}</span>
-                  </button>
+                  <div key={r.id} className="absolute left-0.5 right-0.5 z-20" style={{ top: r.top - 9 + i * 15 }}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (r.occurrence) {
+                          setReminderOccurrenceCompleted.mutate({ ...r.occurrence, completed: !r.completed });
+                        } else {
+                          openReminder(r.id);
+                        }
+                      }}
+                      title={`${r.time} ${r.title}${r.completed ? "（已完成）" : ""}`}
+                      className="flex w-full items-center gap-1 truncate rounded border px-1.5 py-0.5 text-[10px] font-semibold shadow-sm"
+                      style={{
+                        background: r.completed ? "#e5e7eb" : "white",
+                        borderColor: r.completed ? "#d1d5db" : r.color,
+                        color: r.completed ? "#9ca3af" : r.color,
+                        textDecoration: r.completed ? "line-through" : "none",
+                      }}
+                    >
+                      <svg viewBox="0 0 16 16" className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M8 2.5a3.2 3.2 0 0 0-3.2 3.2c0 3.7-1.5 4.8-1.5 4.8h9.4s-1.5-1.1-1.5-4.8A3.2 3.2 0 0 0 8 2.5Z" />
+                        <path d="M6.6 12.7a1.4 1.4 0 0 0 2.8 0" />
+                      </svg>
+                      <span className="font-mono">{r.time}</span>
+                      <span className="truncate">{r.title}</span>
+                    </button>
+                    {r.occurrence && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openReminder(r.occurrence!.reminderId);
+                        }}
+                        className="absolute top-0.5 right-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-black/15 text-[8px] hover:bg-black/30"
+                        title="編輯這個重複系列"
+                      >
+                        <svg viewBox="0 0 16 16" className="h-2 w-2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M11 2.5 13.5 5 5.5 13H3v-2.5Z" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
                 ))}
                 {col.followUps.map((f, i) => (
                   <button

@@ -26,6 +26,10 @@ type WeekItem = {
   timeLabel: string | null;
   sortKey: string;
   onOpen: () => void;
+  // 只有重複展開出來的那次才有值——onOpen 對這種只會切換完成/取消完成，
+  // 要編輯標題/時間/Repeat 設定得改開 master 的面板。
+  editId?: string;
+  editKind?: "task" | "todo" | "reminder";
 };
 
 // Week 目前是簡化的每日清單（依時間排序），不含 Day 那種可拖曳/縮放的時間格。
@@ -147,6 +151,8 @@ export function WeekGrid({ dates }: { dates: Date[] }) {
           date: o.date,
           completed: !o.completed,
         }),
+      editId: o.masterTask.id,
+      editKind: "task",
     }));
 
   const todoOccurrenceItems: WeekItem[] = (todoOccurrences ?? [])
@@ -166,6 +172,8 @@ export function WeekGrid({ dates }: { dates: Date[] }) {
           date: o.date,
           completed: !o.completed,
         }),
+      editId: o.masterTodo.id,
+      editKind: "todo",
     }));
 
   const reminderOccurrenceItems: WeekItem[] = (reminderOccurrences ?? [])
@@ -188,6 +196,8 @@ export function WeekGrid({ dates }: { dates: Date[] }) {
             date: o.date,
             completed: !o.completed,
           }),
+        editId: o.masterReminder.id,
+        editKind: "reminder",
       };
     });
 
@@ -226,38 +236,61 @@ export function WeekGrid({ dates }: { dates: Date[] }) {
             </div>
             <div className="space-y-1">
               {dayItems.map((it) => {
+                // 重複展開出來的那次，onOpen 只會切換完成/取消完成——要編輯
+                // 標題/時間/Repeat 設定得開 master 的面板，另外疊一個小編輯鈕。
+                const editButton = it.editId && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (it.editKind === "task") openTask(it.editId!);
+                      else if (it.editKind === "todo") openTodo(it.editId!);
+                      else openReminder(it.editId!);
+                    }}
+                    className="absolute top-1/2 right-1 flex h-3 w-3 -translate-y-1/2 items-center justify-center rounded-full bg-black/10 text-[8px] hover:bg-black/20"
+                    title="編輯這個重複系列"
+                  >
+                    <svg viewBox="0 0 16 16" className="h-2 w-2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M11 2.5 13.5 5 5.5 13H3v-2.5Z" />
+                    </svg>
+                  </button>
+                );
+
                 // Todo／Reminder 都用淺底 + 照分類顏色上色的圖示，呈現方式互相一致；
                 // Task 才是真的排定時段，維持原本滿版色塊的畫法跟兩者區分開來。
                 if (it.kind === "todo" || it.kind === "reminder" || it.kind === "followup") {
                   const Icon = it.kind === "todo" ? TodoDotIcon : it.kind === "reminder" ? ReminderDotIcon : FollowUpIcon;
                   return (
-                    <button
-                      key={`${it.kind}:${it.id}`}
-                      onClick={it.onOpen}
-                      className="flex w-full items-center gap-1.5 truncate rounded px-1.5 py-1 text-left text-[11px] font-medium hover:bg-neutral-50"
-                      style={{ color: it.color }}
-                    >
-                      <Icon className="h-3 w-3 shrink-0" />
-                      <span className="truncate">
-                        {it.timeLabel && <span className="font-mono opacity-70">{it.timeLabel} </span>}
-                        {it.title}
-                      </span>
-                    </button>
+                    <div key={`${it.kind}:${it.id}`} className="relative">
+                      <button
+                        onClick={it.onOpen}
+                        className="flex w-full items-center gap-1.5 truncate rounded px-1.5 py-1 text-left text-[11px] font-medium hover:bg-neutral-50"
+                        style={{ color: it.color, paddingRight: it.editId ? 18 : undefined }}
+                      >
+                        <Icon className="h-3 w-3 shrink-0" />
+                        <span className="truncate">
+                          {it.timeLabel && <span className="font-mono opacity-70">{it.timeLabel} </span>}
+                          {it.title}
+                        </span>
+                      </button>
+                      {editButton}
+                    </div>
                   );
                 }
                 const fg = getContrastTextColor(it.color);
                 return (
-                  <button
-                    key={`${it.kind}:${it.id}`}
-                    onClick={it.onOpen}
-                    className="flex w-full items-center gap-1 truncate rounded px-1.5 py-1 text-left text-[11px] font-medium"
-                    style={{ background: it.color, color: fg }}
-                  >
-                    <span className="truncate">
-                      {it.timeLabel && <span className="font-mono opacity-85">{it.timeLabel} </span>}
-                      {it.title}
-                    </span>
-                  </button>
+                  <div key={`${it.kind}:${it.id}`} className="relative">
+                    <button
+                      onClick={it.onOpen}
+                      className="flex w-full items-center gap-1 truncate rounded px-1.5 py-1 text-left text-[11px] font-medium"
+                      style={{ background: it.color, color: fg, paddingRight: it.editId ? 18 : undefined }}
+                    >
+                      <span className="truncate">
+                        {it.timeLabel && <span className="font-mono opacity-85">{it.timeLabel} </span>}
+                        {it.title}
+                      </span>
+                    </button>
+                    {editButton}
+                  </div>
                 );
               })}
             </div>
