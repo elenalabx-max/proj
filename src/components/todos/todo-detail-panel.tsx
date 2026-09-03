@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTodoPanelStore } from "@/stores/todo-panel";
-import { useTodo, useUpdateTodo, useCompleteTodo, useConvertTodoToTask, useArchiveTodo } from "@/hooks/use-todos";
+import { useTodo, useUpdateTodo, useCompleteTodo, useConvertTodoToTask, useArchiveTodo, useCreateTodo } from "@/hooks/use-todos";
 import { useTaskPanelStore } from "@/stores/task-panel";
 import { useAreas } from "@/hooks/use-areas";
 import { useProjects } from "@/hooks/use-projects";
@@ -44,7 +44,9 @@ function TodoPanelBody({
   const completeTodo = useCompleteTodo();
   const convertTodo = useConvertTodoToTask();
   const archiveTodo = useArchiveTodo();
+  const createTodo = useCreateTodo();
   const openTask = useTaskPanelStore((s) => s.open);
+  const openTodo = useTodoPanelStore((s) => s.open);
 
   const [title, setTitle] = useState(todo.title);
 
@@ -57,11 +59,38 @@ function TodoPanelBody({
     openTask(task.id);
   }
 
+  // 複製一份新的——完成/遺忘/重複都不帶過去，important/urgent 沒辦法在
+  // useCreateTodo 一次帶過去（那個 mutation 只吃 title/date/project/area），
+  // 建好之後再補一次 update。
+  async function handleDuplicate() {
+    const copy = await createTodo.mutateAsync({
+      title: `${todo.title}（複製）`,
+      date: todo.date,
+      project_id: todo.project_id,
+      area_id: todo.area_id,
+    });
+    if (todo.important || todo.urgent) {
+      await updateTodo.mutateAsync({ id: copy.id, patch: { important: todo.important, urgent: todo.urgent } });
+    }
+    openTodo(copy.id);
+  }
+
   return (
     <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm space-y-4 rounded-lg border border-neutral-200 bg-white p-5 shadow-lg">
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Todo</span>
         <div className="flex items-center gap-3">
+          <button
+            onClick={handleDuplicate}
+            title="複製一份新的 Todo（完成/遺忘/重複不會帶過去）"
+            className="flex items-center gap-1 text-xs font-medium text-neutral-500 hover:underline"
+          >
+            <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="5.5" y="5.5" width="8" height="8" rx="1.2" />
+              <path d="M3.5 10.5V4.2A1.2 1.2 0 0 1 4.7 3h6.3" />
+            </svg>
+            複製
+          </button>
           <button
             onClick={() => {
               archiveTodo.mutate(todo.id);

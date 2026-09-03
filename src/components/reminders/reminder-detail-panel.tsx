@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useReminderPanelStore } from "@/stores/reminder-panel";
-import { useReminder, useUpdateReminder, useDeleteReminder } from "@/hooks/use-reminders";
+import { useReminder, useUpdateReminder, useDeleteReminder, useCreateReminder } from "@/hooks/use-reminders";
 import { useProjects } from "@/hooks/use-projects";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TimePicker } from "@/components/ui/time-picker";
@@ -51,18 +51,62 @@ function ReminderPanelBody({
 }) {
   const updateReminder = useUpdateReminder();
   const deleteReminder = useDeleteReminder();
+  const createReminder = useCreateReminder();
+  const openReminder = useReminderPanelStore((s) => s.open);
 
   const [title, setTitle] = useState(reminder.title ?? "");
   const [date, setDate] = useState(toLocalDate(reminder.remind_at));
   const [time, setTime] = useState(toLocalTime(reminder.remind_at));
 
+  // 複製一份新的——完成/重複不會帶過去，important/urgent 一樣要建好之後
+  // 再補一次 update（useCreateReminder 本身不吃這兩個欄位）。
+  async function handleDuplicate() {
+    const copy = await createReminder.mutateAsync({
+      linkedType: reminder.linked_type ?? "standalone",
+      linkedId: reminder.linked_id ?? undefined,
+      remindAt: reminder.remind_at,
+      note: reminder.note ?? undefined,
+      title: `${reminder.title ?? "提醒"}（複製）`,
+      isAllDay: reminder.is_all_day,
+    });
+    if (reminder.important || reminder.urgent) {
+      await updateReminder.mutateAsync({ id: copy.id, patch: { important: reminder.important, urgent: reminder.urgent } });
+    }
+    openReminder(copy.id);
+  }
+
   return (
     <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm space-y-4 rounded-lg border border-neutral-200 bg-white p-5 shadow-lg">
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Reminder</span>
-        <button onClick={close} className="text-sm text-neutral-400 hover:text-neutral-700">
-          關閉
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleDuplicate}
+            title="複製一份新的提醒（完成/重複不會帶過去）"
+            className="flex items-center gap-1 text-xs font-medium text-neutral-500 hover:underline"
+          >
+            <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="5.5" y="5.5" width="8" height="8" rx="1.2" />
+              <path d="M3.5 10.5V4.2A1.2 1.2 0 0 1 4.7 3h6.3" />
+            </svg>
+            複製
+          </button>
+          <button
+            onClick={() => {
+              deleteReminder.mutate(reminder.id);
+              close();
+            }}
+            className="flex items-center gap-1 text-xs font-medium text-red-500 hover:underline"
+          >
+            <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 4.5h10M6.5 4.5V3a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1.5M4 4.5 4.6 13a1 1 0 0 0 1 .9h4.8a1 1 0 0 0 1-.9l.6-8.5" />
+            </svg>
+            刪除
+          </button>
+          <button onClick={close} className="text-sm text-neutral-400 hover:text-neutral-700">
+            關閉
+          </button>
+        </div>
       </div>
 
       <input
@@ -160,16 +204,6 @@ function ReminderPanelBody({
         />
 
         <RepeatSection reminder={reminder} />
-
-        <button
-          onClick={() => {
-            deleteReminder.mutate(reminder.id);
-            close();
-          }}
-          className="text-xs font-medium text-red-500 hover:underline"
-        >
-          刪除提醒
-        </button>
       </div>
     </div>
   );

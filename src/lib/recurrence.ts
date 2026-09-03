@@ -37,6 +37,37 @@ export function buildRRuleText(pattern: RecurrencePattern): string {
   return rule.toString();
 }
 
+// 跟 describeRRuleText 相反方向——把存好的 rrule_text 解回結構化的 RecurrencePattern，
+// 編輯既有規則時用來預填表單（週幾、每月幾號…），不用逼使用者重新選一次。
+export function parseRRuleText(rruleText: string): RecurrencePattern {
+  try {
+    const opts = RRule.parseString(rruleText);
+    const interval = opts.interval ?? 1;
+    switch (opts.freq) {
+      case RRule.DAILY:
+        return { freq: "daily", interval };
+      case RRule.WEEKLY: {
+        const raw = opts.byweekday ?? [];
+        const list = Array.isArray(raw) ? raw : [raw];
+        const weekdays = list
+          .map((w) => (typeof w === "number" ? w : typeof w === "string" ? undefined : w.weekday))
+          .filter((idx): idx is number => typeof idx === "number");
+        return { freq: "weekly", interval, weekdays: weekdays.length ? weekdays : [0] };
+      }
+      case RRule.MONTHLY: {
+        const day = Array.isArray(opts.bymonthday) ? opts.bymonthday[0] : opts.bymonthday;
+        return { freq: "monthly", interval, day: typeof day === "number" ? day : 1 };
+      }
+      case RRule.YEARLY:
+        return { freq: "yearly", interval };
+      default:
+        return { freq: "weekly", weekdays: [0] };
+    }
+  } catch {
+    return { freq: "weekly", weekdays: [0] };
+  }
+}
+
 export function describeRRuleText(rruleText: string): string {
   try {
     const opts = RRule.parseString(rruleText);

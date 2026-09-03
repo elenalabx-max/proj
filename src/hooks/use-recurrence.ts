@@ -67,16 +67,18 @@ export function useSetRecurrence() {
       taskId,
       pattern,
       startsOn,
+      endsOn,
     }: {
       taskId: string;
       pattern: RecurrencePattern;
       startsOn: string;
+      endsOn?: string | null;
     }) => {
       const supabase = createClient();
       const rrule_text = buildRRuleText(pattern);
       const { data: rule, error: ruleErr } = await supabase
         .from("recurrence_rules")
-        .insert({ user_id: user?.id, rrule_text, starts_on: startsOn })
+        .insert({ user_id: user?.id, rrule_text, starts_on: startsOn, ends_on: endsOn ?? null })
         .select("*")
         .single();
       if (ruleErr) throw ruleErr;

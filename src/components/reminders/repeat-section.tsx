@@ -4,21 +4,21 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useClearReminderRecurrence, useSetReminderRecurrence } from "@/hooks/use-reminder-recurrence";
-import { describeRRuleText, WEEKDAY_ZH, type RecurrencePattern } from "@/lib/recurrence";
+import { describeRRuleText, parseRRuleText, WEEKDAY_ZH, type RecurrencePattern } from "@/lib/recurrence";
 import type { Reminder } from "@/lib/types";
 
-function useRuleText(ruleId: string | null) {
+function useRule(ruleId: string | null) {
   return useQuery({
     queryKey: ["recurrence_rule", ruleId],
     queryFn: async () => {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("recurrence_rules")
-        .select("rrule_text")
+        .select("rrule_text, starts_on, ends_on")
         .eq("id", ruleId)
         .single();
       if (error) throw error;
-      return data.rrule_text as string;
+      return data as { rrule_text: string; starts_on: string; ends_on: string | null };
     },
     enabled: !!ruleId,
   });
@@ -27,20 +27,34 @@ function useRuleText(ruleId: string | null) {
 export function RepeatSection({ reminder }: { reminder: Reminder }) {
   const setRecurrence = useSetReminderRecurrence();
   const clearRecurrence = useClearReminderRecurrence();
-  const { data: rruleText } = useRuleText(reminder.recurrence_rule_id);
+  const { data: rule } = useRule(reminder.recurrence_rule_id);
 
   const [freq, setFreq] = useState<RecurrencePattern["freq"]>("weekly");
   const [weekdays, setWeekdays] = useState<number[]>([]);
   const [monthDay, setMonthDay] = useState(1);
+  const [startsOn, setStartsOn] = useState(reminder.remind_at.slice(0, 10));
+  const [endsOn, setEndsOn] = useState("");
   const [editing, setEditing] = useState(false);
 
+  // 編輯既有規則時把目前的頻率/週幾/起迄日期都預填回表單，不用重新選一次。
+  function startEdit() {
+    if (rule) {
+      const pattern = parseRRuleText(rule.rrule_text);
+      setFreq(pattern.freq);
+      setWeekdays(pattern.freq === "weekly" ? pattern.weekdays : []);
+      setMonthDay(pattern.freq === "monthly" ? pattern.day : 1);
+      setStartsOn(rule.starts_on);
+      setEndsOn(rule.ends_on ?? "");
+    }
+    setEditing(true);
+  }
+
   function handleSave() {
-    const startsOn = reminder.remind_at.slice(0, 10);
     let pattern: RecurrencePattern;
     if (freq === "weekly") pattern = { freq: "weekly", weekdays: weekdays.length ? weekdays : [0] };
     else if (freq === "monthly") pattern = { freq: "monthly", day: monthDay };
     else pattern = { freq };
-    setRecurrence.mutate({ reminderId: reminder.id, pattern, startsOn });
+    setRecurrence.mutate({ reminderId: reminder.id, pattern, startsOn, endsOn: endsOn || null });
     setEditing(false);
   }
 
@@ -48,11 +62,23 @@ export function RepeatSection({ reminder }: { reminder: Reminder }) {
     return (
       <div>
         <label className="mb-1 block text-xs font-medium text-neutral-500">Repeat</label>
-        <div className="flex items-center justify-between rounded-md border border-neutral-200 px-2.5 py-1.5 text-xs">
-          <span className="text-neutral-900">{rruleText ? describeRRuleText(rruleText) : "重複中…"}</span>
-          <button onClick={() => clearRecurrence.mutate(reminder.id)} className="text-red-500 hover:underline">
-            取消重複
-          </button>
+        <div className="space-y-1 rounded-md border border-neutral-200 px-2.5 py-1.5 text-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-neutral-900">{rule ? describeRRuleText(rule.rrule_text) : "重複中…"}</span>
+            <div className="flex shrink-0 items-center gap-2">
+              <button onClick={startEdit} className="text-neutral-500 hover:underline">
+                編輯
+              </button>
+              <button onClick={() => clearRecurrence.mutate(reminder.id)} className="text-red-500 hover:underline">
+                取消重複
+              </button>
+            </div>
+          </div>
+          {rule && (
+            <p className="text-[11px] text-neutral-400">
+              {rule.starts_on} 開始{rule.ends_on ? `，${rule.ends_on} 結束` : "，不限期"}
+            </p>
+          )}
         </div>
       </div>
     );
@@ -102,12 +128,45 @@ export function RepeatSection({ reminder }: { reminder: Reminder }) {
         />
       )}
 
-      <button
-        onClick={handleSave}
-        className="w-full rounded-md bg-neutral-900 px-2 py-1.5 text-xs font-medium text-white"
-      >
-        設定重複
-      </button>
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <label className="mb-1 block text-[11px] text-neutral-400">起始日期</label>
+          <input
+            type="date"
+            value={startsOn}
+            onChange={(e) => setStartsOn(e.target.value)}
+            className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-xs"
+          />
+        </div>
+        <div className="flex-1">
+          <label className="mb-1 block text-[11px] text-neutral-400">結束日期（不填＝不限期）</label>
+          <input
+            type="date"
+            value={endsOn}
+            min={startsOn}
+            onChange={(e) => setEndsOn(e.target.value)}
+            className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-xs"
+          />
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <button
+          onClick={handleSave}
+          className="flex-1 rounded-md bg-neutral-900 px-2 py-1.5 text-xs font-medium text-white"
+        >
+          設定重複
+        </button>
+        {reminder.recurrence_rule_id && (
+          <button
+            type="button"
+            onClick={() => setEditing(false)}
+            className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs text-neutral-500 hover:bg-neutral-50"
+          >
+            取消
+          </button>
+        )}
+      </div>
     </div>
   );
 }

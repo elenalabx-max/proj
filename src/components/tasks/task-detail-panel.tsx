@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTaskPanelStore } from "@/stores/task-panel";
-import { useTask, useUpdateTask, useArchiveTask } from "@/hooks/use-tasks";
+import { useTask, useUpdateTask, useArchiveTask, useCreateTask } from "@/hooks/use-tasks";
 import { useAreas } from "@/hooks/use-areas";
 import { useProjects } from "@/hooks/use-projects";
 import { TASK_STATUS_LABEL, type Area, type Project, type Task, type TaskStatus } from "@/lib/types";
@@ -49,6 +49,8 @@ function TaskPanelBody({
 }) {
   const updateTask = useUpdateTask();
   const archiveTask = useArchiveTask();
+  const createTask = useCreateTask();
+  const openTask = useTaskPanelStore((s) => s.open);
 
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description ?? "");
@@ -58,11 +60,42 @@ function TaskPanelBody({
 
   const projectOptions = projects.filter((p) => !task.area_id || p.area_id === task.area_id);
 
+  // 複製一份——狀態、交辦、重複規則都不帶過去（複製出來的是全新、待處理的一筆，
+  // 不是同一個交辦/重複系列的另一次），其他排程/分類欄位都照搬。
+  async function handleDuplicate() {
+    const copy = await createTask.mutateAsync({
+      title: `${task.title}（複製）`,
+      project_id: task.project_id,
+      area_id: task.area_id,
+      description: task.description,
+      important: task.important,
+      urgent: task.urgent,
+      due_date: task.due_date,
+      estimated_minutes: task.estimated_minutes,
+      scheduled_date: task.scheduled_date,
+      scheduled_start: task.scheduled_start,
+      scheduled_end: task.scheduled_end,
+      is_all_day: task.is_all_day,
+    });
+    openTask(copy.id);
+  }
+
   return (
     <div className="flex h-full w-full max-w-sm flex-col overflow-y-auto border-l border-neutral-200 bg-white p-5">
       <div className="mb-4 flex items-center justify-between">
         <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Task</span>
         <div className="flex items-center gap-3">
+          <button
+            onClick={handleDuplicate}
+            title="複製一份新的 Task（狀態/交辦/重複不會帶過去）"
+            className="flex items-center gap-1 text-xs font-medium text-neutral-500 hover:underline"
+          >
+            <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="5.5" y="5.5" width="8" height="8" rx="1.2" />
+              <path d="M3.5 10.5V4.2A1.2 1.2 0 0 1 4.7 3h6.3" />
+            </svg>
+            複製
+          </button>
           <button
             onClick={() => {
               archiveTask.mutate(task.id);
