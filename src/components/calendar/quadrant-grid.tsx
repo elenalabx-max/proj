@@ -36,6 +36,7 @@ type QuadrantItem = {
   areaType: "personal" | "work" | null;
   projectName: string | null;
   onOpen: () => void;
+  completed: boolean;
 };
 
 type DragItem = { kind: ItemKind; id: string };
@@ -88,6 +89,9 @@ export function QuadrantGrid({ date }: { date: Date }) {
       areaType: areaTypeOf(t),
       projectName: projectOf(t)?.name ?? null,
       onOpen: () => openTask(t.id),
+      // 已經交辦出去的（waiting）跟完成一樣淡化——對我來說這件事現在不用我做了，
+      // 跟其他 Calendar 檢視（Today/Week/Month）的處理方式一致。
+      completed: t.status === "completed" || t.status === "waiting",
     }));
 
   const todoItems: QuadrantItem[] = (todos ?? [])
@@ -105,6 +109,7 @@ export function QuadrantGrid({ date }: { date: Date }) {
       areaType: areaTypeOf(t),
       projectName: projectOf(t)?.name ?? null,
       onOpen: () => openTodo(t.id),
+      completed: false,
     }));
 
   const reminderItems: QuadrantItem[] = (reminders ?? [])
@@ -123,6 +128,7 @@ export function QuadrantGrid({ date }: { date: Date }) {
       areaType: reminderResolver.areaTypeOf(r),
       projectName: reminderResolver.projectOf(r)?.name ?? null,
       onOpen: () => openReminder(r.id),
+      completed: !!r.completed_at,
     }));
 
   // Follow-up 是 Task 本身，直接用 useTaskColorResolver 就能算顏色/Area，不用
@@ -141,6 +147,7 @@ export function QuadrantGrid({ date }: { date: Date }) {
       areaType: areaTypeOf(t),
       projectName: projectOf(t)?.name ?? null,
       onOpen: () => openTask(t.id),
+      completed: false,
     }));
 
   // 重複展開出來的那次，important/urgent／點開／拖曳都對應到 master 那筆
@@ -159,6 +166,7 @@ export function QuadrantGrid({ date }: { date: Date }) {
       areaType: areaTypeOf(o.masterTask),
       projectName: projectOf(o.masterTask)?.name ?? null,
       onOpen: () => openTask(o.masterTask.id),
+      completed: o.completed || o.masterTask.status === "waiting",
     }));
 
   const todoOccurrenceItems: QuadrantItem[] = (todoOccurrences ?? [])
@@ -174,6 +182,7 @@ export function QuadrantGrid({ date }: { date: Date }) {
       areaType: areaTypeOf(o.masterTodo),
       projectName: projectOf(o.masterTodo)?.name ?? null,
       onOpen: () => openTodo(o.masterTodo.id),
+      completed: o.completed,
     }));
 
   const reminderOccurrenceItems: QuadrantItem[] = (reminderOccurrences ?? [])
@@ -189,6 +198,7 @@ export function QuadrantGrid({ date }: { date: Date }) {
       areaType: reminderResolver.areaTypeOf(o.masterReminder),
       projectName: reminderResolver.projectOf(o.masterReminder)?.name ?? null,
       onOpen: () => openReminder(o.masterReminder.id),
+      completed: o.completed,
     }));
 
   const items = [
@@ -267,9 +277,11 @@ function QuadrantCard({ item, dragRef }: { item: QuadrantItem; dragRef: React.Mu
       }}
       className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-neutral-50"
     >
-      <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: item.color }} />
+      <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: item.completed ? "#d1d5db" : item.color }} />
       <span className="min-w-0 flex-1">
-        <div className="truncate font-medium text-neutral-900">
+        <div
+          className={`truncate font-medium ${item.completed ? "text-neutral-400 line-through" : "text-neutral-900"}`}
+        >
           {item.subtitle && <span className="mr-1 font-mono text-neutral-400">{item.subtitle}</span>}
           {item.title}
         </div>

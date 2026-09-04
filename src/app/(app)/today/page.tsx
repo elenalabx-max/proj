@@ -106,7 +106,11 @@ export default function TodayPage() {
           {scheduled.map((t) => (
             <button key={t.id} onClick={() => openTask(t.id)} className="flex w-full items-start gap-1.5 text-left text-xs hover:underline">
               <span className="shrink-0 font-mono text-neutral-400">{t.scheduled_start?.slice(0, 5)}</span>
-              <span className={`truncate ${t.status === "completed" ? "text-neutral-400 line-through" : "text-neutral-800"}`}>
+              <span
+                className={`truncate ${
+                  t.status === "completed" || t.status === "waiting" ? "text-neutral-400 line-through" : "text-neutral-800"
+                }`}
+              >
                 {t.title}
               </span>
             </button>
