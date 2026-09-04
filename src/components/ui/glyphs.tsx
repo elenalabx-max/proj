@@ -30,3 +30,14 @@ export function FollowUpIcon({ className, style }: GlyphProps) {
     </svg>
   );
 }
+
+// 交辦的「對方 Deadline」——旗子，代表對方那邊的期限（跟 Follow-up 的
+// 時鐘區分開來：一個是對方的期限，一個是我自己要回頭確認的時間）。
+export function DelegateDeadlineIcon({ className, style }: GlyphProps) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} style={style} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 2v12" />
+      <path d="M4 2.8h7.3L9.6 5.3l1.7 2.5H4" />
+    </svg>
+  );
+}

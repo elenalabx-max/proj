@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useCreatePerson, usePeople } from "@/hooks/use-people";
 import { useUpdateTask } from "@/hooks/use-tasks";
 import { TimePicker } from "@/components/ui/time-picker";
-import { FollowUpIcon } from "@/components/ui/glyphs";
+import { FollowUpIcon, DelegateDeadlineIcon } from "@/components/ui/glyphs";
 import { todayISODate } from "@/lib/date";
 import type { Task } from "@/lib/types";
 
@@ -105,7 +105,11 @@ export function AssigneeSection({ task }: { task: Task }) {
       {task.assignee_id && (
         <div className="space-y-2">
           <div>
-            <label className="mb-1 block text-[11px] text-neutral-400">對方 Deadline</label>
+            <label className="mb-1 flex items-center gap-1 text-[11px] text-neutral-400">
+              <DelegateDeadlineIcon className="h-3 w-3 shrink-0" />
+              對方 Deadline
+              {task.delegate_deadline && <span className="text-neutral-300">（會顯示在 Calendar 上）</span>}
+            </label>
             <div className="flex items-center gap-1.5">
               <input
                 type="date"

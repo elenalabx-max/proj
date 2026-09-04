@@ -3,7 +3,15 @@
 import { useRef, useState } from "react";
 import { isToday } from "date-fns";
 import { useTasksInRange } from "@/hooks/use-calendar-tasks";
-import { useArchiveTask, useCreateTask, useFollowUpsInRange, useUpdateTask, followUpLabel } from "@/hooks/use-tasks";
+import {
+  useArchiveTask,
+  useCreateTask,
+  useFollowUpsInRange,
+  useDelegateDeadlinesInRange,
+  useUpdateTask,
+  followUpLabel,
+  delegateDeadlineLabel,
+} from "@/hooks/use-tasks";
 import { useTodosInRange } from "@/hooks/use-todos";
 import { useAreas } from "@/hooks/use-areas";
 import { useProjects } from "@/hooks/use-projects";
@@ -16,7 +24,7 @@ import { useCancelOccurrence, useRecurringOccurrences, useSetOccurrenceCompleted
 import { useRecurringTodoOccurrences, useSetTodoOccurrenceCompleted } from "@/hooks/use-todo-recurrence";
 import { useProjectRemindersInRange } from "@/hooks/use-reminders";
 import { useRecurringReminderOccurrences, useSetReminderOccurrenceCompleted } from "@/hooks/use-reminder-recurrence";
-import { TodoDotIcon, FollowUpIcon } from "@/components/ui/glyphs";
+import { TodoDotIcon, FollowUpIcon, DelegateDeadlineIcon } from "@/components/ui/glyphs";
 import { getContrastTextColor, resolveTaskColor } from "@/lib/colors";
 import { minutesToTime, timeToMinutes, toISODate, WEEKDAY_LABELS_MON_FIRST } from "@/lib/date";
 import { layoutOverlaps, type OverlapSlot } from "@/lib/overlap-layout";
@@ -62,10 +70,11 @@ type ReminderMarker = {
   occurrence: { ruleId: string; reminderId: string; date: string } | null;
 };
 
-// 交辦的「我的 Follow-up」——用 follow_up_at 本身的時間畫在時間軸上，跟
-// Reminder 呈現方式一致，但點下去是開 Task 面板（不是切換完成，Follow-up
-// 本身沒有獨立的完成狀態，要透過 Review 頁面的動作處理）。
-type FollowUpMarker = {
+// 交辦的「我的 Follow-up」跟「對方 Deadline」共用同一種形狀——都是用 Task
+// 自己某個時間欄位（follow_up_at／delegate_deadline）畫在時間軸上，跟
+// Reminder 呈現方式一致，但點下去是開 Task 面板（不是切換完成，這兩個都
+// 沒有獨立的完成狀態，要透過 Review 頁面的動作處理）。
+type TaskDateMarker = {
   id: string;
   title: string;
   time: string;
@@ -80,7 +89,8 @@ type Column = {
   label: string;
   blocks: Block[];
   reminders: ReminderMarker[];
-  followUps: FollowUpMarker[];
+  followUps: TaskDateMarker[];
+  deadlines: TaskDateMarker[];
 };
 
 type DragState =
@@ -97,6 +107,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
 
   const { data: tasks } = useTasksInRange(rangeStart, rangeEnd);
   const { data: followUps } = useFollowUpsInRange(rangeStart, rangeEnd);
+  const { data: deadlines } = useDelegateDeadlinesInRange(rangeStart, rangeEnd);
   const { data: occurrences } = useRecurringOccurrences(rangeStart, rangeEnd);
   const { data: todos } = useTodosInRange(rangeStart, rangeEnd);
   const { data: todoOccurrences } = useRecurringTodoOccurrences(rangeStart, rangeEnd);
@@ -266,9 +277,10 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
     });
   }
 
-  // Follow-up 用 area_id/project_id 直接算顏色（不用像 Reminder 繞道 Project），
-  // Task 本身就有這兩個欄位。
-  const followUpMarkers: (FollowUpMarker & { date: string; areaType: "work" | "personal" })[] = [];
+  // Follow-up／對方 Deadline 用 area_id/project_id 直接算顏色（不用像 Reminder
+  // 繞道 Project），Task 本身就有這兩個欄位。兩種都是同樣的「Task 某個時間
+  // 欄位」畫法，只差抓哪個欄位、標籤用哪個。
+  const followUpMarkers: (TaskDateMarker & { date: string; areaType: "work" | "personal" })[] = [];
   for (const t of followUps ?? []) {
     const areaType = areaTypeOf(t.area_id);
     if (areaType !== "work" && areaType !== "personal") continue;
@@ -284,6 +296,30 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
     followUpMarkers.push({
       id: t.id,
       title: followUpLabel(t),
+      time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+      top: minutesOfDay - GRID_START_MIN,
+      color: colorFor(areaType, t.project_id),
+      date: localIso,
+      areaType,
+    });
+  }
+
+  const deadlineMarkers: (TaskDateMarker & { date: string; areaType: "work" | "personal" })[] = [];
+  for (const t of deadlines ?? []) {
+    const areaType = areaTypeOf(t.area_id);
+    if (areaType !== "work" && areaType !== "personal") continue;
+    if (!isVisible(areaType, t.project_id)) continue;
+
+    const d = new Date(t.delegate_deadline!);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const localIso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    if (!isoList.includes(localIso)) continue;
+    const minutesOfDay = d.getHours() * 60 + d.getMinutes();
+    if (minutesOfDay < GRID_START_MIN || minutesOfDay > GRID_END_MIN) continue;
+
+    deadlineMarkers.push({
+      id: t.id,
+      title: delegateDeadlineLabel(t),
       time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
       top: minutesOfDay - GRID_START_MIN,
       color: colorFor(areaType, t.project_id),
@@ -348,6 +384,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
     const dayBlocks = blocks.filter((b) => b.date === iso);
     const dayReminders = reminderMarkers.filter((r) => r.date === iso);
     const dayFollowUps = followUpMarkers.filter((f) => f.date === iso);
+    const dayDeadlines = deadlineMarkers.filter((f) => f.date === iso);
     const columns: Column[] = [];
     if (showWork) {
       columns.push({
@@ -358,6 +395,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
         blocks: dayBlocks.filter((b) => !isPersonal(b)),
         reminders: dayReminders.filter((r) => r.areaType === "work"),
         followUps: dayFollowUps.filter((f) => f.areaType === "work"),
+        deadlines: dayDeadlines.filter((f) => f.areaType === "work"),
       });
     }
     if (showPersonal) {
@@ -369,6 +407,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
         blocks: dayBlocks.filter(isPersonal),
         reminders: dayReminders.filter((r) => r.areaType === "personal"),
         followUps: dayFollowUps.filter((f) => f.areaType === "personal"),
+        deadlines: dayDeadlines.filter((f) => f.areaType === "personal"),
       });
     }
     return { iso, date: dates[i], columns };
@@ -496,8 +535,12 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
     const width = `calc(${100 / slot.cols}% - ${slot.col === 0 ? 4 + gapPx : gapPx * 2}px)`;
 
     // 完成的（不管是 Task 本身還是重複的某一次）維持在原本的時間格位置，
-    // 只是變淡灰色，不整個消失——這樣才看得出「這時段本來排了什麼」。
-    const isCompleted = b.realTask ? b.realTask.status === "completed" : !!b.occurrence?.completed;
+    // 只是變淡灰色，不整個消失——這樣才看得出「這時段本來排了什麼」。已經交辦
+    // 出去的（status='waiting'）也算同一種：對我來說這件事現在不用我做了，
+    // 一樣用灰色表示「不用再花注意力在這上面」。
+    const isCompleted = b.realTask
+      ? b.realTask.status === "completed" || b.realTask.status === "waiting"
+      : !!b.occurrence?.completed;
     const overdue =
       !isCompleted && b.realTask ? isTaskOverdue(b.realTask) : false;
     const bg = isCompleted ? "#e5e7eb" : b.color;
@@ -593,7 +636,9 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
                   {col.blocks
                     .filter((b) => b.is_all_day)
                     .map((b) => {
-                      const isCompleted = b.realTask ? b.realTask.status === "completed" : !!b.occurrence?.completed;
+                      const isCompleted = b.realTask
+                        ? b.realTask.status === "completed" || b.realTask.status === "waiting"
+                        : !!b.occurrence?.completed;
                       const overdue =
                         !isCompleted && b.realTask ? isTaskOverdue(b.realTask) : false;
                       return (
@@ -815,6 +860,27 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
                     <FollowUpIcon className="h-3 w-3 shrink-0" />
                     <span className="font-mono">{f.time}</span>
                     <span className="truncate">{f.title}</span>
+                  </button>
+                ))}
+                {col.deadlines.map((d, i) => (
+                  <button
+                    key={`deadline:${d.id}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openTask(d.id);
+                    }}
+                    title={`${d.time} ${d.title}（對方 Deadline）`}
+                    className="absolute left-0.5 right-0.5 z-20 flex items-center gap-1 truncate rounded border px-1.5 py-0.5 text-[10px] font-semibold shadow-sm"
+                    style={{
+                      top: d.top - 9 + (col.reminders.length + col.followUps.length + i) * 15,
+                      background: "white",
+                      borderColor: d.color,
+                      color: d.color,
+                    }}
+                  >
+                    <DelegateDeadlineIcon className="h-3 w-3 shrink-0" />
+                    <span className="font-mono">{d.time}</span>
+                    <span className="truncate">{d.title}</span>
                   </button>
                 ))}
               </div>

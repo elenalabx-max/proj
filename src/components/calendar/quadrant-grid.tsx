@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import { useTasksInRange } from "@/hooks/use-calendar-tasks";
-import { useFollowUpsInRange, useUpdateTask, followUpLabel } from "@/hooks/use-tasks";
+import { useFollowUpsInRange, useDelegateDeadlinesInRange, useUpdateTask, followUpLabel, delegateDeadlineLabel } from "@/hooks/use-tasks";
 import { useTodosForDate, useUpdateTodo } from "@/hooks/use-todos";
 import { useRemindersOnDate, useUpdateReminder } from "@/hooks/use-reminders";
 import { useRecurringOccurrences } from "@/hooks/use-recurrence";
@@ -22,8 +22,8 @@ const QUADRANTS = [
   { key: "ninu", important: false, urgent: false, label: "不重要且不緊急", color: "#6b7280", icon: "M2 3.5h12v3H2zM3 6.5V12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6.5M6.5 9h3" },
 ] as const;
 
-type ItemKind = "task" | "todo" | "reminder" | "followup";
-const KIND_LABEL: Record<ItemKind, string> = { task: "Task", todo: "Todo", reminder: "提醒", followup: "Follow-up" };
+type ItemKind = "task" | "todo" | "reminder" | "followup" | "deadline";
+const KIND_LABEL: Record<ItemKind, string> = { task: "Task", todo: "Todo", reminder: "提醒", followup: "Follow-up", deadline: "對方 Deadline" };
 
 type QuadrantItem = {
   kind: ItemKind;
@@ -47,6 +47,7 @@ export function QuadrantGrid({ date }: { date: Date }) {
   const iso = toISODate(date);
   const { data: tasks } = useTasksInRange(iso, iso);
   const { data: followUps } = useFollowUpsInRange(iso, iso);
+  const { data: deadlines } = useDelegateDeadlinesInRange(iso, iso);
   const { data: todos } = useTodosForDate(iso);
   const { data: reminders } = useRemindersOnDate(iso);
   const { data: taskOccurrences } = useRecurringOccurrences(iso, iso);
@@ -143,6 +144,21 @@ export function QuadrantGrid({ date }: { date: Date }) {
       onOpen: () => openTask(t.id),
     }));
 
+  const deadlineItems: QuadrantItem[] = (deadlines ?? [])
+    .filter((t) => passesFilter(areaTypeOf(t), t.project_id))
+    .map((t) => ({
+      kind: "deadline",
+      id: t.id,
+      title: delegateDeadlineLabel(t),
+      subtitle: new Date(t.delegate_deadline!).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" }),
+      important: t.important,
+      urgent: t.urgent,
+      color: colorOf(t),
+      areaType: areaTypeOf(t),
+      projectName: projectOf(t)?.name ?? null,
+      onOpen: () => openTask(t.id),
+    }));
+
   // 重複展開出來的那次，important/urgent／點開／拖曳都對應到 master 那筆
   // ——四象限是「這件事的分類」，不是像完成狀態那種需要分次記錄的東西，
   // 拖一次等於重新分類整個重複系列。
@@ -196,6 +212,7 @@ export function QuadrantGrid({ date }: { date: Date }) {
     ...todoItems,
     ...reminderItems,
     ...followUpItems,
+    ...deadlineItems,
     ...taskOccurrenceItems,
     ...todoOccurrenceItems,
     ...reminderOccurrenceItems,
@@ -209,7 +226,7 @@ export function QuadrantGrid({ date }: { date: Date }) {
     const d = dragRef.current;
     dragRef.current = null;
     if (!d) return;
-    if (d.kind === "task" || d.kind === "followup") updateTask.mutate({ id: d.id, patch: { important, urgent } });
+    if (d.kind === "task" || d.kind === "followup" || d.kind === "deadline") updateTask.mutate({ id: d.id, patch: { important, urgent } });
     else if (d.kind === "todo") updateTodo.mutate({ id: d.id, patch: { important, urgent } });
     else updateReminder.mutate({ id: d.id, patch: { important, urgent } });
   }

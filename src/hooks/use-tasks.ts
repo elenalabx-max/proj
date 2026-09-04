@@ -273,6 +273,35 @@ export function useFollowUpsInRange(start: string, end: string) {
   });
 }
 
+export function delegateDeadlineLabel(t: TaskWithAssignee): string {
+  return `${t.people?.name ?? "未指定"} - ${t.title}`;
+}
+
+// 對方 Deadline 跟 Follow-up 一樣要出現在 Calendar 上（一樣用 delegate_deadline
+// 本身查範圍，不看 scheduled_date），做法完全對稱：只抓還在等待中的。
+export function useDelegateDeadlinesInRange(start: string, end: string) {
+  const { user } = useUser();
+
+  return useQuery({
+    queryKey: ["tasks", "delegate-deadline-range", start, end, user?.id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*, people(name)")
+        .eq("status", "waiting")
+        .not("delegate_deadline", "is", null)
+        .gte("delegate_deadline", `${start}T00:00:00`)
+        .lt("delegate_deadline", `${end}T23:59:59.999`)
+        .is("archived_at", null)
+        .order("delegate_deadline", { ascending: true });
+      if (error) throw error;
+      return data as TaskWithAssignee[];
+    },
+    enabled: !!user,
+  });
+}
+
 // Waiting：已交辦、還沒到 Follow-up 時間（或根本沒設）的任務——單純列出讓你知道還欠什麼。
 export function useWaitingTasks() {
   const { user } = useUser();
