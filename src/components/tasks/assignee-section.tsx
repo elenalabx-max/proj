@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useCreatePerson, usePeople } from "@/hooks/use-people";
 import { useUpdateTask } from "@/hooks/use-tasks";
 import { TimePicker } from "@/components/ui/time-picker";
-import { FollowUpIcon, DelegateDeadlineIcon } from "@/components/ui/glyphs";
+import { DelegateDeadlineIcon } from "@/components/ui/glyphs";
 import { todayISODate } from "@/lib/date";
 import type { Task } from "@/lib/types";
 
@@ -103,66 +103,37 @@ export function AssigneeSection({ task }: { task: Task }) {
       )}
 
       {task.assignee_id && (
-        <div className="space-y-2">
-          <div>
-            <label className="mb-1 flex items-center gap-1 text-[11px] text-neutral-400">
-              <DelegateDeadlineIcon className="h-3 w-3 shrink-0" />
-              對方 Deadline
-              {task.delegate_deadline && <span className="text-neutral-300">（會顯示在 Calendar 上）</span>}
-            </label>
-            <div className="flex items-center gap-1.5">
-              <input
-                type="date"
-                value={toLocalDate(task.delegate_deadline)}
-                onChange={(e) =>
-                  updateTask.mutate({
-                    id: task.id,
-                    patch: { delegate_deadline: combineLocal(e.target.value, toLocalTime(task.delegate_deadline)) },
-                  })
-                }
-                className="min-w-0 flex-1 rounded-md border border-neutral-300 px-2 py-1.5 text-xs"
-              />
-              <TimePicker
-                value={toLocalTime(task.delegate_deadline) || null}
-                onChange={(t) =>
-                  updateTask.mutate({
-                    id: task.id,
-                    patch: { delegate_deadline: combineLocal(toLocalDate(task.delegate_deadline) || todayISODate(), t) },
-                  })
-                }
-                className="flex-1"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="mb-1 flex items-center gap-1 text-[11px] text-neutral-400">
-              <FollowUpIcon className="h-3 w-3 shrink-0" />
-              我的 Follow-up
-              {task.follow_up_at && <span className="text-neutral-300">（會顯示在 Calendar 上）</span>}
-            </label>
-            <div className="flex items-center gap-1.5">
-              <input
-                type="date"
-                value={toLocalDate(task.follow_up_at)}
-                onChange={(e) =>
-                  updateTask.mutate({
-                    id: task.id,
-                    patch: { follow_up_at: combineLocal(e.target.value, toLocalTime(task.follow_up_at)) },
-                  })
-                }
-                className="min-w-0 flex-1 rounded-md border border-neutral-300 px-2 py-1.5 text-xs"
-              />
-              <TimePicker
-                value={toLocalTime(task.follow_up_at) || null}
-                onChange={(t) =>
-                  updateTask.mutate({
-                    id: task.id,
-                    patch: { follow_up_at: combineLocal(toLocalDate(task.follow_up_at) || todayISODate(), t) },
-                  })
-                }
-                className="flex-1"
-              />
-            </div>
+        // 對方 Deadline 跟我的 Follow-up 本來是兩個欄位，但實際用起來就是同一個
+        // 時間：交辦出去的期限，到了就是我要回頭確認的時間，兩者永遠相等，不用
+        // 使用者填兩次。這裡只給一個輸入框，onChange 同時寫 delegate_deadline
+        // 跟 follow_up_at；deadline_deadline 沿用作為 Calendar 標記/Review 判斷
+        // 的來源，follow_up_at 保留給 Waiting／Review 頁面既有的查詢邏輯用。
+        <div>
+          <label className="mb-1 flex items-center gap-1 text-[11px] text-neutral-400">
+            <DelegateDeadlineIcon className="h-3 w-3 shrink-0" />
+            交辦期限
+            {task.delegate_deadline && (
+              <span className="text-neutral-300">（到期前在 Waiting，到期後在 Review，會顯示在 Calendar 上）</span>
+            )}
+          </label>
+          <div className="flex items-center gap-1.5">
+            <input
+              type="date"
+              value={toLocalDate(task.delegate_deadline)}
+              onChange={(e) => {
+                const iso = combineLocal(e.target.value, toLocalTime(task.delegate_deadline));
+                updateTask.mutate({ id: task.id, patch: { delegate_deadline: iso, follow_up_at: iso } });
+              }}
+              className="min-w-0 flex-1 rounded-md border border-neutral-300 px-2 py-1.5 text-xs"
+            />
+            <TimePicker
+              value={toLocalTime(task.delegate_deadline) || null}
+              onChange={(t) => {
+                const iso = combineLocal(toLocalDate(task.delegate_deadline) || todayISODate(), t);
+                updateTask.mutate({ id: task.id, patch: { delegate_deadline: iso, follow_up_at: iso } });
+              }}
+              className="flex-1"
+            />
           </div>
         </div>
       )}

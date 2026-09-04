@@ -2,7 +2,7 @@
 
 import { isToday } from "date-fns";
 import { useTasksInRange } from "@/hooks/use-calendar-tasks";
-import { useFollowUpsInRange, useDelegateDeadlinesInRange, followUpLabel, delegateDeadlineLabel } from "@/hooks/use-tasks";
+import { useFollowUpsInRange, followUpLabel } from "@/hooks/use-tasks";
 import { useTodosInRange } from "@/hooks/use-todos";
 import { useRemindersInRange } from "@/hooks/use-reminders";
 import { useRecurringOccurrences, useSetOccurrenceCompleted } from "@/hooks/use-recurrence";
@@ -13,12 +13,12 @@ import { useCalendarFilterStore } from "@/stores/calendar-filter";
 import { useTaskPanelStore } from "@/stores/task-panel";
 import { useTodoPanelStore } from "@/stores/todo-panel";
 import { useReminderPanelStore } from "@/stores/reminder-panel";
-import { TodoDotIcon, ReminderDotIcon, FollowUpIcon, DelegateDeadlineIcon } from "@/components/ui/glyphs";
+import { TodoDotIcon, ReminderDotIcon, FollowUpIcon } from "@/components/ui/glyphs";
 import { getContrastTextColor } from "@/lib/colors";
 import { toISODate, weekdayLabels } from "@/lib/date";
 
 type WeekItem = {
-  kind: "task" | "todo" | "reminder" | "followup" | "deadline";
+  kind: "task" | "todo" | "reminder" | "followup";
   id: string;
   date: string;
   title: string;
@@ -40,7 +40,6 @@ export function WeekGrid({ dates }: { dates: Date[] }) {
   const end = toISODate(dates[dates.length - 1]);
   const { data: tasks } = useTasksInRange(start, end);
   const { data: followUps } = useFollowUpsInRange(start, end);
-  const { data: deadlines } = useDelegateDeadlinesInRange(start, end);
   const { data: todos } = useTodosInRange(start, end);
   const { data: reminders } = useRemindersInRange(start, end);
   const { data: taskOccurrences } = useRecurringOccurrences(start, end);
@@ -111,26 +110,6 @@ export function WeekGrid({ dates }: { dates: Date[] }) {
         id: t.id,
         date: iso,
         title: followUpLabel(t),
-        color: colorOf(t),
-        timeLabel: hhmm,
-        sortKey: hhmm,
-        onOpen: () => openTask(t.id),
-        completed: false,
-      };
-    });
-
-  // 對方 Deadline 跟 Follow-up 呈現方式完全對稱，只差抓 delegate_deadline。
-  const deadlineItems: WeekItem[] = (deadlines ?? [])
-    .filter((t) => passesFilter(areaTypeOf(t), t.project_id))
-    .map((t) => {
-      const d = new Date(t.delegate_deadline!);
-      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      const hhmm = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-      return {
-        kind: "deadline",
-        id: t.id,
-        date: iso,
-        title: delegateDeadlineLabel(t),
         color: colorOf(t),
         timeLabel: hhmm,
         sortKey: hhmm,
@@ -236,7 +215,6 @@ export function WeekGrid({ dates }: { dates: Date[] }) {
     ...todoItems,
     ...reminderItems,
     ...followUpItems,
-    ...deadlineItems,
     ...taskOccurrenceItems,
     ...todoOccurrenceItems,
     ...reminderOccurrenceItems,
@@ -288,15 +266,8 @@ export function WeekGrid({ dates }: { dates: Date[] }) {
 
                 // Todo／Reminder 都用淺底 + 照分類顏色上色的圖示，呈現方式互相一致；
                 // Task 才是真的排定時段，維持原本滿版色塊的畫法跟兩者區分開來。
-                if (it.kind === "todo" || it.kind === "reminder" || it.kind === "followup" || it.kind === "deadline") {
-                  const Icon =
-                    it.kind === "todo"
-                      ? TodoDotIcon
-                      : it.kind === "reminder"
-                        ? ReminderDotIcon
-                        : it.kind === "followup"
-                          ? FollowUpIcon
-                          : DelegateDeadlineIcon;
+                if (it.kind === "todo" || it.kind === "reminder" || it.kind === "followup") {
+                  const Icon = it.kind === "todo" ? TodoDotIcon : it.kind === "reminder" ? ReminderDotIcon : FollowUpIcon;
                   return (
                     <div key={`${it.kind}:${it.id}`} className="relative">
                       <button

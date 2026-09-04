@@ -35,7 +35,7 @@ export default function ReviewPage() {
 
 function ReviewRow({ task, onOpen }: { task: TaskWithAssignee; onOpen: () => void }) {
   const updateTask = useUpdateTask();
-  const [mode, setMode] = useState<"postpone" | "deadline" | null>(null);
+  const [postponing, setPostponing] = useState(false);
 
   function markDoneContinue() {
     updateTask.mutate({ id: task.id, patch: { status: "todo" } });
@@ -57,8 +57,7 @@ function ReviewRow({ task, onOpen }: { task: TaskWithAssignee; onOpen: () => voi
         <span className="text-xs font-medium text-neutral-500">{task.people?.name ?? "未指定"}</span>
       </button>
       <div className="flex gap-4 text-xs text-neutral-400">
-        <span>Deadline：{fmt(task.delegate_deadline)}</span>
-        <span>Follow-up：{fmt(task.follow_up_at)}</span>
+        <span>期限：{fmt(task.delegate_deadline)}</span>
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5 text-xs">
@@ -69,42 +68,26 @@ function ReviewRow({ task, onOpen }: { task: TaskWithAssignee; onOpen: () => voi
           ✓ 對方完成・結案
         </button>
         <button
-          onClick={() => setMode(mode === "postpone" ? null : "postpone")}
+          onClick={() => setPostponing((v) => !v)}
           className="rounded border border-neutral-300 px-2 py-1 hover:bg-neutral-50"
         >
           延後追蹤
-        </button>
-        <button
-          onClick={() => setMode(mode === "deadline" ? null : "deadline")}
-          className="rounded border border-neutral-300 px-2 py-1 hover:bg-neutral-50"
-        >
-          修改 Deadline
         </button>
         <button onClick={cancelDelegation} className="rounded border border-neutral-300 px-2 py-1 text-red-500 hover:bg-red-50">
           取消交辦
         </button>
 
-        {mode === "postpone" && (
+        {postponing && (
           <input
             type="datetime-local"
             autoFocus
             onChange={(e) => {
               if (e.target.value) {
-                updateTask.mutate({ id: task.id, patch: { follow_up_at: new Date(e.target.value).toISOString() } });
-                setMode(null);
-              }
-            }}
-            className="rounded border border-neutral-300 px-1.5 py-0.5"
-          />
-        )}
-        {mode === "deadline" && (
-          <input
-            type="datetime-local"
-            autoFocus
-            onChange={(e) => {
-              if (e.target.value) {
-                updateTask.mutate({ id: task.id, patch: { delegate_deadline: new Date(e.target.value).toISOString() } });
-                setMode(null);
+                // 對方 Deadline 跟我的 Follow-up 是同一個時間，延後要兩個欄位
+                // 一起改（見 AssigneeSection 的說明）。
+                const iso = new Date(e.target.value).toISOString();
+                updateTask.mutate({ id: task.id, patch: { delegate_deadline: iso, follow_up_at: iso } });
+                setPostponing(false);
               }
             }}
             className="rounded border border-neutral-300 px-1.5 py-0.5"
