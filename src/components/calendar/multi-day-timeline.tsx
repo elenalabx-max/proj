@@ -376,11 +376,24 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
 
   const allColumns = dateGroups.flatMap((g) => g.columns);
 
+  // 時段可能早於 06:00 或晚於 23:00（時間軸只畫這段，不是每天都為了少數
+  // 早起/晚睡的排程把整條軸拉長）。用真正的時間算完位置後夾在網格範圍內，
+  // 不然早於 GRID_START_MIN 的會算出負的 top，直接畫到格線外面、疊到上面
+  // 的全天列，版面就破了。裁掉的部分用小箭頭提示「這裡還有沒畫出來的時間」，
+  // 色塊裡的文字標籤本來就是印真正的時間，不受影響。
   function topFor(b: Block) {
-    return timeToMinutes(b.scheduled_start!) - GRID_START_MIN;
+    return Math.max(0, timeToMinutes(b.scheduled_start!) - GRID_START_MIN);
   }
   function heightFor(b: Block) {
-    return Math.max(SNAP, timeToMinutes(b.scheduled_end!) - timeToMinutes(b.scheduled_start!));
+    const startMin = Math.max(timeToMinutes(b.scheduled_start!), GRID_START_MIN);
+    const endMin = Math.min(timeToMinutes(b.scheduled_end!), GRID_END_MIN);
+    return Math.max(SNAP, endMin - startMin);
+  }
+  function clipsAbove(b: Block) {
+    return timeToMinutes(b.scheduled_start!) < GRID_START_MIN;
+  }
+  function clipsBelow(b: Block) {
+    return timeToMinutes(b.scheduled_end!) > GRID_END_MIN;
   }
 
   function commit(task: Task, top: number, height: number) {
@@ -506,6 +519,8 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
       !isCompleted && b.realTask ? isTaskOverdue(b.realTask) : false;
     const bg = isCompleted ? "#e5e7eb" : b.color;
     const fg = isCompleted ? "#6b7280" : getContrastTextColor(b.color);
+    const clippedAbove = clipsAbove(b);
+    const clippedBelow = clipsBelow(b);
 
     return (
       <div
@@ -514,6 +529,11 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
         onClick={() => {
           if (b.occurrence) setOccurrenceCompleted.mutate({ ...b.occurrence, completed: !b.occurrence.completed });
         }}
+        title={
+          clippedAbove || clippedBelow
+            ? `實際時間 ${b.scheduled_start?.slice(0, 5)}–${b.scheduled_end?.slice(0, 5)}（超出 ${minutesToTime(GRID_START_MIN)}–${minutesToTime(GRID_END_MIN)} 顯示範圍）`
+            : undefined
+        }
         className={`absolute touch-none overflow-hidden rounded px-2 py-1 text-xs select-none ${
           b.realTask ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
         }`}
@@ -527,6 +547,21 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
           zIndex: overridePos?.blockId === b.id ? 10 : slot.col + 1,
         }}
       >
+        {/* 時段超出 06:00–23:00 這段顯示範圍時，色塊會被夾在網格邊界內
+            （見 topFor/heightFor 的說明），這裡加一道淡淡的漸層當作「還有
+            沒畫出來的部分」的提示，真正的時間仍以文字標籤跟這裡的 title 為準。 */}
+        {clippedAbove && (
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0 h-2"
+            style={{ background: "linear-gradient(to bottom, rgba(255,255,255,0.55), rgba(255,255,255,0))" }}
+          />
+        )}
+        {clippedBelow && (
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-2"
+            style={{ background: "linear-gradient(to top, rgba(255,255,255,0.55), rgba(255,255,255,0))" }}
+          />
+        )}
         {overdue && (
           <span
             title="已經過期還沒完成"
