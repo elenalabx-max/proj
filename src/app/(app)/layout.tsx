@@ -19,7 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen bg-neutral-50">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center gap-3 border-b border-neutral-200 bg-white px-4 py-3 md:gap-4 md:px-6">
+        <header className="relative flex items-center gap-3 border-b border-neutral-200 bg-white px-4 py-3 md:gap-4 md:px-6">
           <MobileSidebarToggle />
           <QuickAdd />
           <GlobalSearch />

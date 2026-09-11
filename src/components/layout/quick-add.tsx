@@ -5,6 +5,7 @@ import { useCreateTodo } from "@/hooks/use-todos";
 import { useCreateReminder } from "@/hooks/use-reminders";
 import { useCreateTask } from "@/hooks/use-tasks";
 import { useProjects } from "@/hooks/use-projects";
+import { useIsMobile } from "@/hooks/use-is-mobile";
 import { TimePicker } from "@/components/ui/time-picker";
 
 type Mode = "todo" | "task" | "reminder";
@@ -17,6 +18,7 @@ type Mode = "todo" | "task" | "reminder";
 // Calendar 上（沒掛就不知道要畫在 Work 還 Personal 欄），Task 額外會把
 // Project 的 Area 也帶上，跟 Detail Panel 手動選 Project 的行為一致。
 export function QuickAdd() {
+  const isMobile = useIsMobile();
   const [mode, setMode] = useState<Mode>("todo");
   const [value, setValue] = useState("");
   const [pendingTitle, setPendingTitle] = useState<string | null>(null);
@@ -84,6 +86,48 @@ export function QuickAdd() {
   }
 
   if (pendingTitle && (mode === "todo" || mode === "task")) {
+    // 手機螢幕太窄，原本那種單行擠 4-5 個控制項的做法會被其他 header 按鈕
+    // （搜尋／登出）疊字——改成蓋住整個 header 的兩行版面，欄位有自己的
+    // 一整行可以用，填完/取消再收回去，不會跟其他 header 內容搶位置。
+    if (isMobile) {
+      return (
+        <form
+          onSubmit={handleCreateTodoOrTask}
+          className="absolute inset-x-0 top-0 z-30 flex flex-col gap-2 border-b border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="min-w-0 flex-1 truncate font-medium text-neutral-800">「{pendingTitle}」</span>
+            <button type="button" onClick={resetPending} className="shrink-0 text-sm text-neutral-400">
+              取消
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              autoFocus
+              value={pendingDate}
+              onChange={(e) => setPendingDate(e.target.value)}
+              className="min-w-0 flex-1 rounded-md border border-neutral-300 px-2 py-1.5 text-sm"
+            />
+            <select
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+              className="min-w-0 flex-1 rounded-md border border-neutral-300 px-2 py-1.5 text-sm text-neutral-600"
+            >
+              <option value="">不掛 Project</option>
+              {projects?.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <button type="submit" className="shrink-0 rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white">
+              新增
+            </button>
+          </div>
+        </form>
+      );
+    }
     return (
       <form onSubmit={handleCreateTodoOrTask} className="flex min-w-0 flex-1 max-w-md items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm">
         <span className="shrink-0 truncate text-neutral-600">「{pendingTitle}」</span>
@@ -117,6 +161,49 @@ export function QuickAdd() {
   }
 
   if (pendingTitle && mode === "reminder") {
+    if (isMobile) {
+      return (
+        <form
+          onSubmit={handleCreateReminder}
+          className="absolute inset-x-0 top-0 z-30 flex flex-col gap-2 border-b border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="min-w-0 flex-1 truncate font-medium text-neutral-800">「{pendingTitle}」</span>
+            <button type="button" onClick={resetPending} className="shrink-0 text-sm text-neutral-400">
+              取消
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              required
+              autoFocus
+              value={pendingDate}
+              onChange={(e) => setPendingDate(e.target.value)}
+              className="min-w-0 flex-1 rounded-md border border-neutral-300 px-2 py-1.5 text-sm"
+            />
+            <TimePicker value={remindTime || null} onChange={setRemindTime} className="min-w-0 flex-1" />
+          </div>
+          <div className="flex items-center gap-2">
+            <select
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+              className="min-w-0 flex-1 rounded-md border border-neutral-300 px-2 py-1.5 text-sm text-neutral-600"
+            >
+              <option value="">不掛 Project（不會顯示在 Calendar）</option>
+              {projects?.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <button type="submit" className="shrink-0 rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white">
+              新增
+            </button>
+          </div>
+        </form>
+      );
+    }
     return (
       <form onSubmit={handleCreateReminder} className="flex min-w-0 flex-1 max-w-md items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm">
         <span className="shrink-0 truncate text-neutral-600">「{pendingTitle}」</span>
