@@ -8,7 +8,6 @@ import { useInboxTasks, useUpdateTask, useBulkUpdateTasks } from "@/hooks/use-ta
 import { useTaskPanelStore } from "@/stores/task-panel";
 import { useTodoPanelStore } from "@/stores/todo-panel";
 import { CheckboxIcon } from "@/components/ui/checkbox";
-import { toISODate } from "@/lib/date";
 import type { Task, Todo } from "@/lib/types";
 
 type Row =
@@ -16,14 +15,6 @@ type Row =
   | { kind: "task"; id: string; title: string; data: Task };
 
 const FORGOTTEN_FOREVER = "9999-12-31";
-
-// 一定要用本地時區算「今天/明天」，不要用 toISOString()（那是 UTC，台灣時間
-// 半夜到早上 8 點前這段 UTC 還沒跨過日期，「明天」會算成「今天」）。
-function isoDate(offsetDays: number) {
-  const d = new Date();
-  d.setDate(d.getDate() + offsetDays);
-  return toISODate(d);
-}
 
 export default function InboxPage() {
   const { data: todos, isLoading: todosLoading } = useInboxTodos();
@@ -64,7 +55,13 @@ export default function InboxPage() {
     if (r.kind === "todo") {
       await updateTodo.mutateAsync({ id: r.id, patch: { date } });
     } else {
-      await updateTask.mutateAsync({ id: r.id, patch: { scheduled_date: date, status: "todo" } });
+      // 沒有另外排精確時段的話要當全天處理，不然沒有 is_all_day 也沒有
+      // scheduled_start/end，Calendar 兩種畫法都會跳過它，排了等於沒排
+      // （跟 quick-add.tsx 的同一個 bug，見那邊的說明）。
+      await updateTask.mutateAsync({
+        id: r.id,
+        patch: { scheduled_date: date, is_all_day: true, status: "todo" },
+      });
     }
   }
 
@@ -93,14 +90,14 @@ export default function InboxPage() {
     }
   }
 
-  async function applyBatch(action: "today" | "tomorrow" | "date" | "project" | "forget-forever" | "forget-date", value?: string) {
+  async function applyBatch(action: "date" | "project" | "forget-forever" | "forget-date", value?: string) {
     const selectedRows = rows.filter((r) => selected.has(key(r)));
     const taskIds = selectedRows.filter((r) => r.kind === "task").map((r) => r.id);
 
-    if (action === "today" || action === "tomorrow" || action === "date") {
-      const date = action === "today" ? isoDate(0) : action === "tomorrow" ? isoDate(1) : value!;
+    if (action === "date") {
+      const date = value!;
       if (taskIds.length) {
-        await bulkUpdateTasks.mutateAsync({ ids: taskIds, patch: { scheduled_date: date, status: "todo" } });
+        await bulkUpdateTasks.mutateAsync({ ids: taskIds, patch: { scheduled_date: date, is_all_day: true, status: "todo" } });
       }
       await Promise.all(
         selectedRows.filter((r) => r.kind === "todo").map((r) => updateTodo.mutateAsync({ id: r.id, patch: { date } })),
@@ -128,12 +125,6 @@ export default function InboxPage() {
       {selected.size > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm">
           <span className="font-medium text-neutral-700">已選 {selected.size} 項</span>
-          <button onClick={() => applyBatch("today")} className="rounded border border-neutral-300 bg-white px-2 py-1 hover:bg-neutral-100">
-            今天
-          </button>
-          <button onClick={() => applyBatch("tomorrow")} className="rounded border border-neutral-300 bg-white px-2 py-1 hover:bg-neutral-100">
-            明天
-          </button>
           <button onClick={() => setBatchMode(batchMode === "date" ? null : "date")} className="rounded border border-neutral-300 bg-white px-2 py-1 hover:bg-neutral-100">
             選日期
           </button>
@@ -244,12 +235,6 @@ function InboxRow({
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5 pl-7 text-xs text-neutral-500">
-        <button onClick={() => onSchedule(isoDate(0))} className="hover:text-neutral-900 hover:underline">
-          今天
-        </button>
-        <button onClick={() => onSchedule(isoDate(1))} className="hover:text-neutral-900 hover:underline">
-          明天
-        </button>
         <button onClick={() => setMode(mode === "date" ? null : "date")} className="hover:text-neutral-900 hover:underline">
           選日期
         </button>
