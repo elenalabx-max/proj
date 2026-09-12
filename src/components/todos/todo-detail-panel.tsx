@@ -219,15 +219,17 @@ function TodoPanelBody({
         <div className="flex gap-2">
           <button
             onClick={handleUpgrade}
+            title="需要排程／記工時再用這個"
             className="flex-1 rounded-md border border-neutral-300 px-2 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
           >
-            升級為 Task（需要排程／記工時再用這個）
+            升級為 Task
           </button>
           <button
             onClick={handleConvertToReminder}
+            title="只是想到時間被提醒一次"
             className="flex-1 rounded-md border border-neutral-300 px-2 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
           >
-            轉成提醒（只是想到時間被提醒一次）
+            轉成提醒
           </button>
         </div>
       </div>

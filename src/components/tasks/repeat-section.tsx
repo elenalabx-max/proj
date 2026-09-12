@@ -130,23 +130,23 @@ export function RepeatSection({ task }: { task: Task }) {
       )}
 
       <div className="flex gap-2">
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           <label className="mb-1 block text-[11px] text-neutral-400">起始日期</label>
           <input
             type="date"
             value={startsOn}
             onChange={(e) => setStartsOn(e.target.value)}
-            className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-xs"
+            className="w-full min-w-0 rounded-md border border-neutral-300 px-2 py-1.5 text-xs"
           />
         </div>
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           <label className="mb-1 block text-[11px] text-neutral-400">結束日期（不填＝不限期）</label>
           <input
             type="date"
             value={endsOn}
             min={startsOn}
             onChange={(e) => setEndsOn(e.target.value)}
-            className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-xs"
+            className="w-full min-w-0 rounded-md border border-neutral-300 px-2 py-1.5 text-xs"
           />
         </div>
       </div>
