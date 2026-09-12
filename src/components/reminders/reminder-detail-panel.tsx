@@ -76,7 +76,7 @@ function ReminderPanelBody({
   }
 
   return (
-    <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm space-y-4 rounded-lg border border-neutral-200 bg-white p-5 shadow-lg">
+    <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm space-y-4 overflow-x-hidden rounded-lg border border-neutral-200 bg-white p-5 shadow-lg">
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Reminder</span>
         <div className="flex items-center gap-3">
@@ -155,8 +155,8 @@ function ReminderPanelBody({
           </select>
         </div>
 
-        <div className="flex items-center justify-between">
-          <label className="block text-xs font-medium text-neutral-500">時間（單一時間點，不用區間）</label>
+        <div className="flex items-center justify-between gap-2">
+          <label className="min-w-0 flex-1 truncate text-xs font-medium text-neutral-500">時間（單一時間點，不用區間）</label>
           <Checkbox
             checked={reminder.is_all_day}
             onChange={() =>
@@ -165,7 +165,7 @@ function ReminderPanelBody({
                 patch: { is_all_day: !reminder.is_all_day },
               })
             }
-            className="text-xs"
+            className="shrink-0 text-xs"
             label="整天"
           />
         </div>

@@ -219,14 +219,17 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
     const pad = (n: number) => String(n).padStart(2, "0");
     const localIso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     if (!isoList.includes(localIso)) continue;
+    // 時間點超出 06:00–23:00 這段顯示範圍時，夾在邊界上顯示，不要整個跳過
+    // 不畫——不然像「轉成整天提醒後又取消整天」這種時間點還停在 00:00 的情況，
+    // 提醒會直接從時間軸上消失，看起來像不見了（見 topFor/heightFor 的同款處理）。
     const minutesOfDay = d.getHours() * 60 + d.getMinutes();
-    if (minutesOfDay < GRID_START_MIN || minutesOfDay > GRID_END_MIN) continue;
+    const top = Math.max(0, Math.min(minutesOfDay - GRID_START_MIN, GRID_HEIGHT));
 
     reminderMarkers.push({
       id: r.id,
       title: r.title ?? "提醒",
       time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
-      top: minutesOfDay - GRID_START_MIN,
+      top,
       color: project.color,
       completed: !!r.completed_at,
       date: localIso,
@@ -247,13 +250,13 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
     const d = new Date(o.remindAt);
     const pad = (n: number) => String(n).padStart(2, "0");
     const minutesOfDay = d.getHours() * 60 + d.getMinutes();
-    if (minutesOfDay < GRID_START_MIN || minutesOfDay > GRID_END_MIN) continue;
+    const top = Math.max(0, Math.min(minutesOfDay - GRID_START_MIN, GRID_HEIGHT));
 
     reminderMarkers.push({
       id: o.id,
       title: o.title,
       time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
-      top: minutesOfDay - GRID_START_MIN,
+      top,
       color: project.color,
       completed: o.completed,
       date: o.date,
@@ -279,13 +282,13 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
     const localIso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     if (!isoList.includes(localIso)) continue;
     const minutesOfDay = d.getHours() * 60 + d.getMinutes();
-    if (minutesOfDay < GRID_START_MIN || minutesOfDay > GRID_END_MIN) continue;
+    const top = Math.max(0, Math.min(minutesOfDay - GRID_START_MIN, GRID_HEIGHT));
 
     followUpMarkers.push({
       id: t.id,
       title: followUpLabel(t),
       time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
-      top: minutesOfDay - GRID_START_MIN,
+      top,
       color: colorFor(areaType, t.project_id),
       date: localIso,
       areaType,

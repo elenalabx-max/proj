@@ -93,7 +93,7 @@ function TodoPanelBody({
   }
 
   return (
-    <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm space-y-4 rounded-lg border border-neutral-200 bg-white p-5 shadow-lg">
+    <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm space-y-4 overflow-x-hidden rounded-lg border border-neutral-200 bg-white p-5 shadow-lg">
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Todo</span>
         <div className="flex items-center gap-3">

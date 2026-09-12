@@ -81,7 +81,7 @@ function TaskPanelBody({
   }
 
   return (
-    <div className="flex h-full w-full max-w-sm flex-col overflow-y-auto border-l border-neutral-200 bg-white p-5">
+    <div className="flex h-full w-full max-w-sm flex-col overflow-x-hidden overflow-y-auto border-l border-neutral-200 bg-white p-5">
       <div className="mb-4 flex items-center justify-between">
         <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Task</span>
         <div className="flex items-center gap-3">
@@ -207,16 +207,16 @@ function TaskPanelBody({
         </div>
 
         <div className="flex gap-2">
-          <div className="flex-1">
+          <div className="min-w-0 flex-1">
             <label className="mb-1 block text-xs font-medium text-neutral-500">Due Date</label>
             <input
               type="date"
               value={task.due_date ?? ""}
               onChange={(e) => updateTask.mutate({ id: task.id, patch: { due_date: e.target.value || null } })}
-              className="w-full rounded-md border border-neutral-300 px-2 py-1.5"
+              className="w-full min-w-0 rounded-md border border-neutral-300 px-2 py-1.5"
             />
           </div>
-          <div className="w-28">
+          <div className="w-28 shrink-0">
             <label className="mb-1 block text-xs font-medium text-neutral-500">預計(分)</label>
             <input
               type="number"
@@ -236,8 +236,8 @@ function TaskPanelBody({
         <TimeLogSection task={task} />
 
         <div className="space-y-2 rounded-md border border-neutral-200 p-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-neutral-500">排定時間（Calendar 上顯示的時間）</span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="min-w-0 flex-1 truncate text-xs font-medium text-neutral-500">排定時間（Calendar 上顯示的時間）</span>
             <Checkbox
               checked={task.is_all_day}
               onChange={() =>
@@ -248,7 +248,7 @@ function TaskPanelBody({
                     : { is_all_day: false },
                 })
               }
-              className="text-xs"
+              className="shrink-0 text-xs"
               label="全天"
             />
           </div>

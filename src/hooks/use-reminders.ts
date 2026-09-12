@@ -6,8 +6,13 @@ import { isReminderOverdue } from "@/lib/overdue";
 import type { Reminder, ReminderLinkedType } from "@/lib/types";
 import { useUser } from "./use-user";
 
+// 只 invalidate 「reminders」（複數，列表查詢）漏掉了 useReminder(id) 用的
+// 「reminder」（單數）——面板打開中改任何欄位，資料庫確實寫進去了，但面板
+// 自己讀的是沒被 invalidate 的舊快取，看起來像「按了沒反應」，要關掉面板
+// 重開才會看到最新的值。兩個 key 都要 invalidate。
 function invalidateReminders(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: ["reminders"] });
+  queryClient.invalidateQueries({ queryKey: ["reminder"] });
 }
 
 export function useProjectReminders(projectId: string | null) {
