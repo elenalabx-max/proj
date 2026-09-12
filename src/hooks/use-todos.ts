@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { isTodoOverdue } from "@/lib/overdue";
 import { todayISODate } from "@/lib/date";
-import type { Task, Todo } from "@/lib/types";
+import type { Reminder, Task, Todo } from "@/lib/types";
 import { useUser } from "./use-user";
 
 function todayISO() {
@@ -323,5 +323,48 @@ export function useConvertTodoToTask() {
       return task as Task;
     },
     onSuccess: () => invalidateTodoQueries(queryClient),
+  });
+}
+
+// 「轉成提醒」跟「升級為 Task」是同一個模式——建一筆對應的 Reminder，
+// 原本的 Todo 存檔而不是刪除。Todo 只有日期沒有時間，轉過去先當全天提醒，
+// 要精確時間再自己去 Reminder 面板改。有掛 Project 的話一起帶過去，
+// 沒有就是獨立提醒（不會顯示在 Calendar 上，跟 Reminder 本身的規則一致）。
+export function useConvertTodoToReminder() {
+  const queryClient = useQueryClient();
+  const { user } = useUser();
+
+  return useMutation({
+    mutationFn: async ({ todo }: { todo: Todo }) => {
+      const supabase = createClient();
+      const remindDate = todo.date ?? todayISODate();
+
+      const { data: reminder, error: insertError } = await supabase
+        .from("reminders")
+        .insert({
+          user_id: user?.id,
+          title: todo.title,
+          linked_type: todo.project_id ? "project" : "standalone",
+          linked_id: todo.project_id,
+          remind_at: new Date(`${remindDate}T00:00:00`).toISOString(),
+          is_all_day: true,
+        })
+        .select("*")
+        .single();
+      if (insertError) throw insertError;
+
+      const { error: archiveError } = await supabase
+        .from("todos")
+        .update({ archived_at: new Date().toISOString() })
+        .eq("id", todo.id);
+      if (archiveError) throw archiveError;
+
+      return reminder as Reminder;
+    },
+    onSuccess: () => {
+      invalidateTodoQueries(queryClient);
+      queryClient.invalidateQueries({ queryKey: ["reminders"] });
+      queryClient.invalidateQueries({ queryKey: ["reminder-occurrences"] });
+    },
   });
 }

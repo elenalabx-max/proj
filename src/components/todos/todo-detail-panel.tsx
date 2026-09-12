@@ -2,8 +2,17 @@
 
 import { useState } from "react";
 import { useTodoPanelStore } from "@/stores/todo-panel";
-import { useTodo, useUpdateTodo, useCompleteTodo, useConvertTodoToTask, useArchiveTodo, useCreateTodo } from "@/hooks/use-todos";
+import {
+  useTodo,
+  useUpdateTodo,
+  useCompleteTodo,
+  useConvertTodoToTask,
+  useConvertTodoToReminder,
+  useArchiveTodo,
+  useCreateTodo,
+} from "@/hooks/use-todos";
 import { useTaskPanelStore } from "@/stores/task-panel";
+import { useReminderPanelStore } from "@/stores/reminder-panel";
 import { useAreas } from "@/hooks/use-areas";
 import { useProjects } from "@/hooks/use-projects";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -43,10 +52,12 @@ function TodoPanelBody({
   const updateTodo = useUpdateTodo();
   const completeTodo = useCompleteTodo();
   const convertTodo = useConvertTodoToTask();
+  const convertToReminder = useConvertTodoToReminder();
   const archiveTodo = useArchiveTodo();
   const createTodo = useCreateTodo();
   const openTask = useTaskPanelStore((s) => s.open);
   const openTodo = useTodoPanelStore((s) => s.open);
+  const openReminder = useReminderPanelStore((s) => s.open);
 
   const [title, setTitle] = useState(todo.title);
 
@@ -57,6 +68,12 @@ function TodoPanelBody({
     const task = await convertTodo.mutateAsync({ todo });
     close();
     openTask(task.id);
+  }
+
+  async function handleConvertToReminder() {
+    const reminder = await convertToReminder.mutateAsync({ todo });
+    close();
+    openReminder(reminder.id);
   }
 
   // 複製一份新的——完成/遺忘/重複都不帶過去，important/urgent 沒辦法在
@@ -199,12 +216,20 @@ function TodoPanelBody({
           </div>
         )}
 
-        <button
-          onClick={handleUpgrade}
-          className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
-        >
-          升級為 Task（需要排程／記工時再用這個）
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleUpgrade}
+            className="flex-1 rounded-md border border-neutral-300 px-2 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+          >
+            升級為 Task（需要排程／記工時再用這個）
+          </button>
+          <button
+            onClick={handleConvertToReminder}
+            className="flex-1 rounded-md border border-neutral-300 px-2 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+          >
+            轉成提醒（只是想到時間被提醒一次）
+          </button>
+        </div>
       </div>
     </div>
   );
