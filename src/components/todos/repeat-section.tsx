@@ -129,7 +129,10 @@ export function RepeatSection({ todo }: { todo: Todo }) {
         />
       )}
 
-      <div className="flex gap-2">
+      {/* 手機（真機）上原生日期選單的最小寬度比 flexbox 算出來的還寬，
+          光靠 min-w-0 擠不下去，兩欄硬排會被原生控制項自己撐爆——
+          乾脆窄螢幕直接改上下疊放，每個欄位都拿到全寬，桌面版才維持並排。 */}
+      <div className="flex flex-col gap-2 sm:flex-row">
         <div className="min-w-0 flex-1">
           <label className="mb-1 block text-[11px] text-neutral-400">起始日期</label>
           <input
