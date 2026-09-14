@@ -206,7 +206,10 @@ function TaskPanelBody({
           />
         </div>
 
-        <div className="flex gap-2">
+        {/* 手機真機上原生日期選單的最小寬度不會因為 CSS 縮小，跟旁邊欄位並排
+            會被擠到看不見——窄螢幕改上下疊放，桌面版才維持並排（同一招見
+            RepeatSection 的說明）。 */}
+        <div className="flex flex-col gap-2 sm:flex-row">
           <div className="min-w-0 flex-1">
             <label className="mb-1 block text-xs font-medium text-neutral-500">Due Date</label>
             <input
@@ -216,7 +219,7 @@ function TaskPanelBody({
               className="w-full min-w-0 rounded-md border border-neutral-300 px-2 py-1.5"
             />
           </div>
-          <div className="w-28 shrink-0">
+          <div className="w-full sm:w-28 sm:shrink-0">
             <label className="mb-1 block text-xs font-medium text-neutral-500">預計(分)</label>
             <input
               type="number"

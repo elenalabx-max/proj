@@ -153,23 +153,25 @@ export function ProjectFormDialog({
           </div>
         </div>
 
-        <div className="flex gap-3">
-          <div className="flex-1">
+        {/* 手機真機上原生日期選單的最小寬度不會因為 CSS 縮小，兩個並排會被擠到
+            看不見——窄螢幕改上下疊放，桌面版才維持並排。 */}
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="min-w-0 flex-1">
             <label className="mb-1 block text-xs font-medium text-neutral-500">開始日期</label>
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full rounded-md border border-neutral-300 px-2.5 py-1.5 text-sm"
+              className="w-full min-w-0 rounded-md border border-neutral-300 px-2.5 py-1.5 text-sm"
             />
           </div>
-          <div className="flex-1">
+          <div className="min-w-0 flex-1">
             <label className="mb-1 block text-xs font-medium text-neutral-500">截止日期</label>
             <input
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
-              className="w-full rounded-md border border-neutral-300 px-2.5 py-1.5 text-sm"
+              className="w-full min-w-0 rounded-md border border-neutral-300 px-2.5 py-1.5 text-sm"
             />
           </div>
         </div>
