@@ -87,7 +87,7 @@ export function TimeLogSection({ task }: { task: Task }) {
 
       {showForm ? (
         <TimeLogForm
-          taskId={task.id}
+          task={task}
           editingLog={editingLog}
           onDone={() => {
             setShowForm(false);
@@ -116,22 +116,28 @@ function DeleteLogButton({ log, taskId }: { log: TimeLog; taskId: string }) {
 }
 
 function TimeLogForm({
-  taskId,
+  task,
   editingLog,
   onDone,
 }: {
-  taskId: string;
+  task: Task;
   editingLog: TimeLog | null;
   onDone: () => void;
 }) {
+  const taskId = task.id;
   const createTimeLog = useCreateTimeLog();
   const updateTimeLog = useUpdateTimeLog();
 
+  // 新增時（不是編輯既有紀錄）先用這個 Task 原本排定的時間/預計工時當預設值，
+  // 不要每次都寫死 09:00–10:00・30 分鐘——實際工作通常跟排定的差不多，
+  // 這樣大部分時候直接按新增就好，真的不一樣再自己改。
   const [method, setMethod] = useState<"range" | "duration">(editingLog?.started_at ? "range" : "duration");
-  const [logDate, setLogDate] = useState(editingLog?.log_date ?? todayISODate());
-  const [startTime, setStartTime] = useState(editingLog?.started_at?.slice(11, 16) ?? "09:00");
-  const [endTime, setEndTime] = useState(editingLog?.ended_at?.slice(11, 16) ?? "10:00");
-  const [durationInput, setDurationInput] = useState(String(editingLog?.duration_minutes ?? 30));
+  const [logDate, setLogDate] = useState(editingLog?.log_date ?? task.scheduled_date ?? todayISODate());
+  const [startTime, setStartTime] = useState(editingLog?.started_at?.slice(11, 16) ?? task.scheduled_start?.slice(0, 5) ?? "09:00");
+  const [endTime, setEndTime] = useState(editingLog?.ended_at?.slice(11, 16) ?? task.scheduled_end?.slice(0, 5) ?? "10:00");
+  const [durationInput, setDurationInput] = useState(
+    String(editingLog?.duration_minutes ?? task.estimated_minutes ?? 30),
+  );
   const [note, setNote] = useState(editingLog?.note ?? "");
 
   function handleSubmit(e: React.FormEvent) {
@@ -189,10 +195,12 @@ function TimeLogForm({
       <input type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)} className="w-full rounded border border-neutral-300 px-2 py-1 text-xs" />
 
       {method === "range" ? (
-        <div className="flex items-center gap-1.5">
-          <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-full rounded border border-neutral-300 px-2 py-1 text-xs" />
-          <span className="text-neutral-400">–</span>
-          <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="w-full rounded border border-neutral-300 px-2 py-1 text-xs" />
+        // 兩個原生 time 選單並排在手機真機上一樣會被擠爆（跟 date 選單同一個
+        // 瀏覽器限制），窄螢幕改上下疊放。
+        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center">
+          <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-full min-w-0 rounded border border-neutral-300 px-2 py-1 text-xs" />
+          <span className="hidden text-neutral-400 sm:inline">–</span>
+          <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="w-full min-w-0 rounded border border-neutral-300 px-2 py-1 text-xs" />
         </div>
       ) : (
         <div className="flex items-center gap-1.5">
