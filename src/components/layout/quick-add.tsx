@@ -5,7 +5,6 @@ import { useCreateTodo } from "@/hooks/use-todos";
 import { useCreateReminder } from "@/hooks/use-reminders";
 import { useCreateTask } from "@/hooks/use-tasks";
 import { useProjects } from "@/hooks/use-projects";
-import { useIsMobile } from "@/hooks/use-is-mobile";
 import { TimePicker } from "@/components/ui/time-picker";
 
 type Mode = "todo" | "task" | "reminder";
@@ -18,7 +17,6 @@ type Mode = "todo" | "task" | "reminder";
 // Calendar 上（沒掛就不知道要畫在 Work 還 Personal 欄），Task 額外會把
 // Project 的 Area 也帶上，跟 Detail Panel 手動選 Project 的行為一致。
 export function QuickAdd() {
-  const isMobile = useIsMobile();
   const [mode, setMode] = useState<Mode>("todo");
   const [value, setValue] = useState("");
   const [pendingTitle, setPendingTitle] = useState<string | null>(null);
@@ -86,154 +84,93 @@ export function QuickAdd() {
   }
 
   if (pendingTitle && (mode === "todo" || mode === "task")) {
-    // 手機螢幕太窄，原本那種單行擠 4-5 個控制項的做法會被其他 header 按鈕
-    // （搜尋／登出）疊字——改成蓋住整個 header 的兩行版面，欄位有自己的
-    // 一整行可以用，填完/取消再收回去，不會跟其他 header 內容搶位置。
-    if (isMobile) {
-      return (
-        <form
-          onSubmit={handleCreateTodoOrTask}
-          className="absolute inset-x-0 top-0 z-30 flex flex-col gap-2 border-b border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="min-w-0 flex-1 truncate font-medium text-neutral-800">「{pendingTitle}」</span>
-            <button type="button" onClick={resetPending} className="shrink-0 text-sm text-neutral-400">
-              取消
-            </button>
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="date"
-              autoFocus
-              value={pendingDate}
-              onChange={(e) => setPendingDate(e.target.value)}
-              className="min-w-0 flex-1 rounded-md border border-neutral-300 px-2 py-1.5 text-sm"
-            />
-            <select
-              value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              className="min-w-0 flex-1 rounded-md border border-neutral-300 px-2 py-1.5 text-sm text-neutral-600"
-            >
-              <option value="">不掛 Project</option>
-              {projects?.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-            <button type="submit" className="shrink-0 rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white">
-              新增
-            </button>
-          </div>
-        </form>
-      );
-    }
+    // 原本桌面版是單行塞標題+日期+Project 下拉+新增+取消 5-6 個控制項，
+    // max-w-md（448px）裝不下，Project 下拉常常被擠到只剩幾 px 寬、
+    // 根本點不到——不只手機窄螢幕會這樣，desktop 一樣會擠。改成統一蓋住
+    // 整個 header 的多行版面，欄位都有自己的一整行，不管裝置都不會擠爆。
     return (
-      <form onSubmit={handleCreateTodoOrTask} className="flex min-w-0 flex-1 max-w-md items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm">
-        <span className="shrink-0 truncate text-neutral-600">「{pendingTitle}」</span>
-        <input
-          type="date"
-          autoFocus
-          value={pendingDate}
-          onChange={(e) => setPendingDate(e.target.value)}
-          className="shrink-0 text-xs outline-none"
-        />
-        <select
-          value={projectId}
-          onChange={(e) => setProjectId(e.target.value)}
-          className="min-w-0 flex-1 text-xs text-neutral-500 outline-none"
-        >
-          <option value="">不掛 Project</option>
-          {projects?.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-        <button type="submit" className="shrink-0 rounded bg-neutral-900 px-2 py-1 text-xs font-medium text-white">
-          新增
-        </button>
-        <button type="button" onClick={resetPending} className="shrink-0 text-xs text-neutral-400">
-          取消
-        </button>
+      <form
+        onSubmit={handleCreateTodoOrTask}
+        className="absolute inset-x-0 top-0 z-30 flex flex-col gap-2 border-b border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="min-w-0 flex-1 truncate font-medium text-neutral-800">「{pendingTitle}」</span>
+          <button type="button" onClick={resetPending} className="shrink-0 text-sm text-neutral-400">
+            取消
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            autoFocus
+            value={pendingDate}
+            onChange={(e) => setPendingDate(e.target.value)}
+            className="min-w-0 flex-1 rounded-md border border-neutral-300 px-2 py-1.5 text-sm"
+          />
+          <select
+            value={projectId}
+            onChange={(e) => setProjectId(e.target.value)}
+            className="min-w-0 flex-1 rounded-md border border-neutral-300 px-2 py-1.5 text-sm text-neutral-600"
+          >
+            <option value="">不掛 Project</option>
+            {projects?.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+          <button type="submit" className="shrink-0 rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white">
+            新增
+          </button>
+        </div>
       </form>
     );
   }
 
   if (pendingTitle && mode === "reminder") {
-    if (isMobile) {
-      return (
-        <form
-          onSubmit={handleCreateReminder}
-          className="absolute inset-x-0 top-0 z-30 flex flex-col gap-2 border-b border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="min-w-0 flex-1 truncate font-medium text-neutral-800">「{pendingTitle}」</span>
-            <button type="button" onClick={resetPending} className="shrink-0 text-sm text-neutral-400">
-              取消
-            </button>
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="date"
-              required
-              autoFocus
-              value={pendingDate}
-              onChange={(e) => setPendingDate(e.target.value)}
-              className="min-w-0 flex-1 rounded-md border border-neutral-300 px-2 py-1.5 text-sm"
-            />
-            <TimePicker value={remindTime || null} onChange={setRemindTime} className="min-w-0 flex-1" />
-          </div>
-          <div className="flex items-center gap-2">
-            <select
-              value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              className="min-w-0 flex-1 rounded-md border border-neutral-300 px-2 py-1.5 text-sm text-neutral-600"
-            >
-              <option value="">不掛 Project（不會顯示在 Calendar）</option>
-              {projects?.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-            <button type="submit" className="shrink-0 rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white">
-              新增
-            </button>
-          </div>
-        </form>
-      );
-    }
+    // 同上——原本桌面版單行塞標題+日期+時間+Project 下拉+新增+取消，
+    // 元素比 Task/Todo 那排還多一個 TimePicker，Project 下拉幾乎必定被擠到
+    // 選不到，很容易就漏選 Project、提醒因此不會出現在 Calendar 上卻不知道
+    // 為什麼。統一改成多行版面，每個欄位都看得到、點得到。
     return (
-      <form onSubmit={handleCreateReminder} className="flex min-w-0 flex-1 max-w-md items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm">
-        <span className="shrink-0 truncate text-neutral-600">「{pendingTitle}」</span>
-        <input
-          type="date"
-          required
-          autoFocus
-          value={pendingDate}
-          onChange={(e) => setPendingDate(e.target.value)}
-          className="shrink-0 text-xs outline-none"
-        />
-        <TimePicker value={remindTime || null} onChange={setRemindTime} className="w-24 shrink-0 text-xs" />
-        <select
-          value={projectId}
-          onChange={(e) => setProjectId(e.target.value)}
-          className="min-w-0 flex-1 text-xs text-neutral-500 outline-none"
-        >
-          <option value="">不掛 Project（不會顯示在 Calendar）</option>
-          {projects?.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-        <button type="submit" className="shrink-0 rounded bg-neutral-900 px-2 py-1 text-xs font-medium text-white">
-          新增
-        </button>
-        <button type="button" onClick={resetPending} className="shrink-0 text-xs text-neutral-400">
-          取消
-        </button>
+      <form
+        onSubmit={handleCreateReminder}
+        className="absolute inset-x-0 top-0 z-30 flex flex-col gap-2 border-b border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="min-w-0 flex-1 truncate font-medium text-neutral-800">「{pendingTitle}」</span>
+          <button type="button" onClick={resetPending} className="shrink-0 text-sm text-neutral-400">
+            取消
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            required
+            autoFocus
+            value={pendingDate}
+            onChange={(e) => setPendingDate(e.target.value)}
+            className="min-w-0 flex-1 rounded-md border border-neutral-300 px-2 py-1.5 text-sm"
+          />
+          <TimePicker value={remindTime || null} onChange={setRemindTime} className="min-w-0 flex-1" />
+        </div>
+        <div className="flex items-center gap-2">
+          <select
+            value={projectId}
+            onChange={(e) => setProjectId(e.target.value)}
+            className="min-w-0 flex-1 rounded-md border border-neutral-300 px-2 py-1.5 text-sm text-neutral-600"
+          >
+            <option value="">不掛 Project（不會顯示在 Calendar）</option>
+            {projects?.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+          <button type="submit" className="shrink-0 rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white">
+            新增
+          </button>
+        </div>
       </form>
     );
   }
