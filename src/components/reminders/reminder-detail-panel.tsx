@@ -4,10 +4,11 @@ import { useState } from "react";
 import { useReminderPanelStore } from "@/stores/reminder-panel";
 import { useReminder, useUpdateReminder, useDeleteReminder, useCreateReminder } from "@/hooks/use-reminders";
 import { useProjects } from "@/hooks/use-projects";
+import { useAreas } from "@/hooks/use-areas";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TimePicker } from "@/components/ui/time-picker";
 import { RepeatSection } from "./repeat-section";
-import type { Project, Reminder } from "@/lib/types";
+import type { Area, Project, Reminder } from "@/lib/types";
 
 function pad(n: number) {
   return String(n).padStart(2, "0");
@@ -29,23 +30,26 @@ export function ReminderDetailPanel() {
   const close = useReminderPanelStore((s) => s.close);
   const { data: reminder } = useReminder(reminderId);
   const { data: projects } = useProjects();
+  const { data: areas } = useAreas();
 
   if (!reminderId || !reminder) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 p-4" onClick={close}>
       {/* keyed by reminder.id so the buffered title field resets per reminder without an effect */}
-      <ReminderPanelBody key={reminder.id} reminder={reminder} projects={projects ?? []} close={close} />
+      <ReminderPanelBody key={reminder.id} reminder={reminder} areas={areas ?? []} projects={projects ?? []} close={close} />
     </div>
   );
 }
 
 function ReminderPanelBody({
   reminder,
+  areas,
   projects,
   close,
 }: {
   reminder: Reminder;
+  areas: Area[];
   projects: Project[];
   close: () => void;
 }) {
@@ -58,12 +62,18 @@ function ReminderPanelBody({
   const [date, setDate] = useState(toLocalDate(reminder.remind_at));
   const [time, setTime] = useState(toLocalTime(reminder.remind_at));
 
+  // Area 以提醒自己的為準，舊資料（只掛 Project、沒有 area_id）退回 Project 的 Area。
+  const linkedProjectId = reminder.linked_type === "project" ? reminder.linked_id : null;
+  const currentAreaId = reminder.area_id ?? projects.find((p) => p.id === linkedProjectId)?.area_id ?? null;
+  const projectOptions = projects.filter((p) => !currentAreaId || p.area_id === currentAreaId);
+
   // 複製一份新的——完成/重複不會帶過去，important/urgent 一樣要建好之後
   // 再補一次 update（useCreateReminder 本身不吃這兩個欄位）。
   async function handleDuplicate() {
     const copy = await createReminder.mutateAsync({
       linkedType: reminder.linked_type ?? "standalone",
       linkedId: reminder.linked_id ?? undefined,
+      areaId: reminder.area_id,
       remindAt: reminder.remind_at,
       note: reminder.note ?? undefined,
       title: `${reminder.title ?? "提醒"}（複製）`,
@@ -132,22 +142,44 @@ function ReminderPanelBody({
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-neutral-500">Project</label>
+          <label className="mb-1 block text-xs font-medium text-neutral-500">Area</label>
           <select
-            value={reminder.linked_type === "project" ? reminder.linked_id ?? "" : ""}
-            onChange={(e) => {
-              const projectId = e.target.value;
+            value={currentAreaId ?? ""}
+            onChange={(e) =>
               updateReminder.mutate({
                 id: reminder.id,
-                patch: projectId
-                  ? { linked_type: "project", linked_id: projectId }
+                patch: { area_id: e.target.value || null, linked_type: "standalone", linked_id: null },
+              })
+            }
+            className="w-full rounded-md border border-neutral-300 px-2 py-1.5"
+          >
+            <option value="">未分類（不會顯示在 Calendar）</option>
+            {areas.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.type === "personal" ? "個人" : "工作"}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-xs font-medium text-neutral-500">Project</label>
+          <select
+            value={linkedProjectId ?? ""}
+            onChange={(e) => {
+              const projectId = e.target.value;
+              const project = projects.find((p) => p.id === projectId);
+              updateReminder.mutate({
+                id: reminder.id,
+                patch: project
+                  ? { linked_type: "project", linked_id: project.id, area_id: project.area_id }
                   : { linked_type: "standalone", linked_id: null },
               });
             }}
             className="w-full rounded-md border border-neutral-300 px-2 py-1.5"
           >
-            <option value="">不掛 Project（不會顯示在 Calendar）</option>
-            {projects.map((p) => (
+            <option value="">不掛 Project</option>
+            {projectOptions.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
               </option>

@@ -5,6 +5,7 @@ import { useCreateTodo } from "@/hooks/use-todos";
 import { useCreateReminder } from "@/hooks/use-reminders";
 import { useCreateTask } from "@/hooks/use-tasks";
 import { useProjects } from "@/hooks/use-projects";
+import { useAreas } from "@/hooks/use-areas";
 import { TimePicker } from "@/components/ui/time-picker";
 
 type Mode = "todo" | "task" | "reminder";
@@ -23,10 +24,12 @@ export function QuickAdd() {
   const [pendingDate, setPendingDate] = useState("");
   const [remindTime, setRemindTime] = useState("");
   const [projectId, setProjectId] = useState("");
+  const [areaId, setAreaId] = useState("");
   const createTodo = useCreateTodo();
   const createTask = useCreateTask();
   const createReminder = useCreateReminder();
   const { data: projects } = useProjects();
+  const { data: areas } = useAreas();
 
   function resetPending() {
     setPendingTitle(null);
@@ -34,6 +37,7 @@ export function QuickAdd() {
     setPendingDate("");
     setRemindTime("");
     setProjectId("");
+    setAreaId("");
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -74,9 +78,11 @@ export function QuickAdd() {
   function handleCreateReminder(e: React.FormEvent) {
     e.preventDefault();
     if (!pendingDate || !remindTime || !pendingTitle) return;
+    const project = projects?.find((p) => p.id === projectId);
     createReminder.mutate({
-      linkedType: projectId ? "project" : "standalone",
-      linkedId: projectId || undefined,
+      linkedType: project ? "project" : "standalone",
+      linkedId: project?.id,
+      areaId: project?.area_id ?? (areaId || null),
       remindAt: new Date(`${pendingDate}T${remindTime}`).toISOString(),
       title: pendingTitle,
     });
@@ -156,21 +162,38 @@ export function QuickAdd() {
         </div>
         <div className="flex items-center gap-2">
           <select
+            value={areaId}
+            onChange={(e) => {
+              setAreaId(e.target.value);
+              setProjectId(""); // 換 Area 後原本選的 Project 可能不屬於它
+            }}
+            className="min-w-0 flex-1 rounded-md border border-neutral-300 px-2 py-1.5 text-sm text-neutral-600"
+          >
+            <option value="">未分類（不會顯示在 Calendar）</option>
+            {areas?.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.type === "personal" ? "個人" : "工作"}
+              </option>
+            ))}
+          </select>
+          <select
             value={projectId}
             onChange={(e) => setProjectId(e.target.value)}
             className="min-w-0 flex-1 rounded-md border border-neutral-300 px-2 py-1.5 text-sm text-neutral-600"
           >
-            <option value="">不掛 Project（不會顯示在 Calendar）</option>
-            {projects?.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
+            <option value="">不掛 Project</option>
+            {projects
+              ?.filter((p) => !areaId || p.area_id === areaId)
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
           </select>
-          <button type="submit" className="shrink-0 rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white">
-            新增
-          </button>
         </div>
+        <button type="submit" className="w-full rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white">
+          新增
+        </button>
       </form>
     );
   }

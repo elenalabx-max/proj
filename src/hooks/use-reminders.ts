@@ -43,8 +43,8 @@ export function useRemindersOnDate(date: string) {
       const { data, error } = await supabase
         .from("reminders")
         .select("*")
-        .gte("remind_at", `${date}T00:00:00`)
-        .lt("remind_at", `${date}T23:59:59.999`)
+        .gte("remind_at", localDayStartISO(date))
+        .lte("remind_at", localDayEndISO(date))
         .order("remind_at", { ascending: true });
       if (error) throw error;
       return data as Reminder[];
@@ -53,30 +53,18 @@ export function useRemindersOnDate(date: string) {
   });
 }
 
-// 有掛 Project 的提醒才要畫在 Calendar 上（沒有 Project 就不知道放哪一欄）。
-export function useProjectRemindersInRange(start: string, end: string) {
-  const { user } = useUser();
-
-  return useQuery({
-    queryKey: ["reminders", "project-range", start, end, user?.id],
-    queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("reminders")
-        .select("*")
-        .eq("linked_type", "project")
-        .gte("remind_at", `${start}T00:00:00`)
-        .lt("remind_at", `${end}T23:59:59.999`)
-        .order("remind_at", { ascending: true });
-      if (error) throw error;
-      return data as Reminder[];
-    },
-    enabled: !!user,
-  });
+// 「這一天」的邊界要用使用者本地時區換算成真正的時間點再去比對 timestamptz
+// 欄位——直接拿 "2026-09-16T00:00:00" 這種沒有時區的字串去比，Postgres 會當成
+// UTC，台灣時間 00:00–07:59 的提醒就會被算到前一天去、當天查不到。
+function localDayStartISO(date: string) {
+  return new Date(`${date}T00:00:00`).toISOString();
+}
+function localDayEndISO(date: string) {
+  return new Date(`${date}T23:59:59.999`).toISOString();
 }
 
-// Week/Month 行事曆格子用——跟 Today 一樣不限定要掛 Project（沒掛的話 Area 判斷
-// 就當作 null，跟 Quadrant 用同一套「兩個 toggle 開一個就顯示」規則）。
+// Calendar（Today/3-Days 時間軸、Week、Month）用：不限定要掛 Project——有自己的
+// area_id（個人/工作）就知道該畫在哪一欄，沒有 Area 也沒有 Project 才會不顯示。
 export function useRemindersInRange(start: string, end: string) {
   const { user } = useUser();
 
@@ -87,8 +75,8 @@ export function useRemindersInRange(start: string, end: string) {
       const { data, error } = await supabase
         .from("reminders")
         .select("*")
-        .gte("remind_at", `${start}T00:00:00`)
-        .lt("remind_at", `${end}T23:59:59.999`)
+        .gte("remind_at", localDayStartISO(start))
+        .lte("remind_at", localDayEndISO(end))
         .order("remind_at", { ascending: true });
       if (error) throw error;
       return data as Reminder[];
@@ -140,6 +128,7 @@ export function useCreateReminder() {
     mutationFn: async ({
       linkedType,
       linkedId,
+      areaId,
       remindAt,
       note,
       title,
@@ -147,6 +136,7 @@ export function useCreateReminder() {
     }: {
       linkedType: ReminderLinkedType;
       linkedId?: string | null;
+      areaId?: string | null;
       remindAt: string;
       note?: string;
       title?: string;
@@ -159,6 +149,7 @@ export function useCreateReminder() {
           user_id: user?.id,
           linked_type: linkedType,
           linked_id: linkedId ?? null,
+          area_id: areaId ?? null,
           remind_at: remindAt,
           note: note || null,
           title: title || null,

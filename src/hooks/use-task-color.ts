@@ -38,11 +38,14 @@ export function useTaskColorResolver() {
   return { areas, projects, areaTypeOf, colorOf, projectOf };
 }
 
-// Reminder 沒有自己的 area_id/project_id，要透過掛的 Project 換算——沒掛 Project
-// 就沒有 Area 可以歸類，跟 Quadrant 用同一套「兩個 toggle 開一個就顯示」規則。
+// Reminder 自己有 area_id（個人/工作），Project 是透過 linked_type='project'
+// 掛的。Area 以提醒自己的為準，沒設才退回掛的 Project 所屬的 Area（舊資料）；
+// 顏色跟 Task 一樣：有 Project 用 Project 色，沒有就用該 Area 的預設色。
+// Area 跟 Project 都沒有的才算「未分類」，顏色用灰色。
 export function useReminderColorResolver() {
   const { data: areas } = useAreas();
   const { data: projects } = useProjects();
+  const { data: settings } = useUserSettings();
 
   function projectOf(reminder: Reminder): Project | null {
     if (reminder.linked_type !== "project" || !reminder.linked_id) return null;
@@ -50,13 +53,21 @@ export function useReminderColorResolver() {
   }
 
   function areaTypeOf(reminder: Reminder) {
-    const project = projectOf(reminder);
-    if (!project) return null;
-    return areas?.find((a) => a.id === project.area_id)?.type ?? null;
+    const areaId = reminder.area_id ?? projectOf(reminder)?.area_id ?? null;
+    if (!areaId) return null;
+    return areas?.find((a) => a.id === areaId)?.type ?? null;
   }
 
   function colorOf(reminder: Reminder) {
-    return projectOf(reminder)?.color ?? "#9ca3af";
+    const project = projectOf(reminder);
+    const areaType = areaTypeOf(reminder);
+    if (!project && !areaType) return "#9ca3af";
+    return resolveTaskColor({
+      areaType,
+      projectColor: project?.color,
+      personalDefaultColor: settings?.personal_default_color ?? "#9a86ac",
+      workFallbackColor: settings?.work_fallback_color ?? "#5b7f9a",
+    });
   }
 
   return { areaTypeOf, colorOf, projectOf };

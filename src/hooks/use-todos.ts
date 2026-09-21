@@ -346,6 +346,7 @@ export function useConvertTodoToReminder() {
           title: todo.title,
           linked_type: todo.project_id ? "project" : "standalone",
           linked_id: todo.project_id,
+          area_id: todo.area_id,
           remind_at: new Date(`${remindDate}T00:00:00`).toISOString(),
           is_all_day: true,
         })

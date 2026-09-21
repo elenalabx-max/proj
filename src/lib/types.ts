@@ -102,6 +102,7 @@ export type Reminder = {
   is_all_day: boolean;
   linked_type: ReminderLinkedType | null;
   linked_id: string | null;
+  area_id: string | null;
   title: string | null;
   note: string | null;
   recurrence_rule_id: string | null;

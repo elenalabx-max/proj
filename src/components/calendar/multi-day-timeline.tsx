@@ -14,14 +14,14 @@ import { useTodoPanelStore } from "@/stores/todo-panel";
 import { useReminderPanelStore } from "@/stores/reminder-panel";
 import { useCancelOccurrence, useRecurringOccurrences, useSetOccurrenceCompleted } from "@/hooks/use-recurrence";
 import { useRecurringTodoOccurrences, useSetTodoOccurrenceCompleted } from "@/hooks/use-todo-recurrence";
-import { useProjectRemindersInRange } from "@/hooks/use-reminders";
+import { useRemindersInRange } from "@/hooks/use-reminders";
 import { useRecurringReminderOccurrences, useSetReminderOccurrenceCompleted } from "@/hooks/use-reminder-recurrence";
 import { TodoDotIcon, FollowUpIcon } from "@/components/ui/glyphs";
 import { getContrastTextColor, resolveTaskColor } from "@/lib/colors";
 import { minutesToTime, timeToMinutes, toISODate, WEEKDAY_LABELS_MON_FIRST } from "@/lib/date";
 import { layoutOverlaps, type OverlapSlot } from "@/lib/overlap-layout";
 import { isTaskOverdue } from "@/lib/overdue";
-import type { Task } from "@/lib/types";
+import type { Reminder, Task } from "@/lib/types";
 
 const GRID_START_MIN = 360; // 06:00
 const GRID_END_MIN = 1380; // 23:00
@@ -100,7 +100,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
   const { data: occurrences } = useRecurringOccurrences(rangeStart, rangeEnd);
   const { data: todos } = useTodosInRange(rangeStart, rangeEnd);
   const { data: todoOccurrences } = useRecurringTodoOccurrences(rangeStart, rangeEnd);
-  const { data: projectReminders } = useProjectRemindersInRange(rangeStart, rangeEnd);
+  const { data: reminders } = useRemindersInRange(rangeStart, rangeEnd);
   const { data: reminderOccurrences } = useRecurringReminderOccurrences(rangeStart, rangeEnd);
   const { data: areas } = useAreas();
   const { data: projects } = useProjects();
@@ -204,16 +204,25 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
 
   const isPersonal = (b: Block) => b.areaType === "personal";
 
-  // 有掛 Project 的提醒，換算成使用者本地時區的日期/分鐘數，畫成小標記（不是滿版色塊）。
+  // 提醒要放在哪一欄（個人/工作）由自己的 area_id 決定，沒設才看掛的 Project
+  // 屬於哪個 Area（舊資料）；Area 跟 Project 都沒有的才是「未分類」，沒地方放所以不畫。
+  // 顏色：有 Project 用 Project 色，沒有就用該 Area 的預設色（跟 Task 一致）。
+  function placeReminder(r: Reminder) {
+    const projectId = r.linked_type === "project" ? r.linked_id : null;
+    const project = projectId ? projects?.find((p) => p.id === projectId) : undefined;
+    const areaType = areaTypeOf(r.area_id ?? project?.area_id ?? null);
+    if (areaType !== "work" && areaType !== "personal") return null;
+    if (!isVisible(areaType, project?.id ?? null)) return null;
+    return { areaType, color: colorFor(areaType, project?.id ?? null) };
+  }
+
+  // 提醒換算成使用者本地時區的日期/分鐘數，畫成小標記（不是滿版色塊）。
   const reminderMarkers: (ReminderMarker & { date: string; areaType: "work" | "personal" })[] = [];
-  for (const r of projectReminders ?? []) {
+  for (const r of reminders ?? []) {
     if (r.recurrence_rule_id) continue; // 這種改由下面的 occurrences 展開，避免重複顯示
-    if (!r.linked_id) continue;
-    const project = projects?.find((p) => p.id === r.linked_id);
-    if (!project) continue;
-    const areaType = areaTypeOf(project.area_id);
-    if (areaType !== "work" && areaType !== "personal") continue;
-    if (!isVisible(areaType, project.id)) continue;
+    const placed = placeReminder(r);
+    if (!placed) continue;
+    const { areaType } = placed;
 
     const d = new Date(r.remind_at);
     const pad = (n: number) => String(n).padStart(2, "0");
@@ -230,7 +239,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
       title: r.title ?? "提醒",
       time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
       top,
-      color: project.color,
+      color: placed.color,
       completed: !!r.completed_at,
       date: localIso,
       areaType,
@@ -239,12 +248,9 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
   }
 
   for (const o of reminderOccurrences ?? []) {
-    if (o.masterReminder.linked_type !== "project" || !o.masterReminder.linked_id) continue;
-    const project = projects?.find((p) => p.id === o.masterReminder.linked_id);
-    if (!project) continue;
-    const areaType = areaTypeOf(project.area_id);
-    if (areaType !== "work" && areaType !== "personal") continue;
-    if (!isVisible(areaType, project.id)) continue;
+    const placed = placeReminder(o.masterReminder);
+    if (!placed) continue;
+    const { areaType } = placed;
     if (!isoList.includes(o.date)) continue;
 
     const d = new Date(o.remindAt);
@@ -257,7 +263,7 @@ export function MultiDayTimeline({ dates }: { dates: Date[] }) {
       title: o.title,
       time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
       top,
-      color: project.color,
+      color: placed.color,
       completed: o.completed,
       date: o.date,
       areaType,
