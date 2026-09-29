@@ -238,7 +238,10 @@ function TaskPanelBody({
 
         <TimeLogSection task={task} />
 
-        <div className="space-y-2 rounded-md border border-neutral-200 p-3">
+        {/* overflow-hidden 當保險——手機真機上原生日期選單有時候渲染寬度會
+            比 CSS 算出來的還寬一點點，不裁掉的話那幾 px 會直接溢出這個框，
+            蓋到旁邊的內容。*/}
+        <div className="space-y-2 overflow-hidden rounded-md border border-neutral-200 p-3">
           <div className="flex items-center justify-between gap-2">
             <span className="min-w-0 flex-1 truncate text-xs font-medium text-neutral-500">排定時間（Calendar 上顯示的時間）</span>
             <Checkbox

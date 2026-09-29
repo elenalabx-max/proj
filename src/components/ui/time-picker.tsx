@@ -89,10 +89,13 @@ export function TimePicker({
     return () => document.removeEventListener("mousedown", onDocPointerDown);
   }, [open]);
 
+  // 還沒選過時間的話，選單預設捲到 06:00 附近（大概是一般人開始活動的時間），
+  // 不要每次打開都停在最上面的 00:00，逼人往下滑一大段才找得到常用時段——
+  // 06:00 停在中間，上下都還能繼續滑。
   useEffect(() => {
-    if (open && listRef.current && normalizedValue) {
-      listRef.current.querySelector<HTMLElement>(`[data-value="${normalizedValue}"]`)?.scrollIntoView({ block: "center" });
-    }
+    if (!open || !listRef.current) return;
+    const target = normalizedValue ?? "06:00";
+    listRef.current.querySelector<HTMLElement>(`[data-value="${target}"]`)?.scrollIntoView({ block: "center" });
   }, [open, normalizedValue]);
 
   function commit(raw: string) {

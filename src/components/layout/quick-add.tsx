@@ -5,7 +5,6 @@ import { useCreateTodo } from "@/hooks/use-todos";
 import { useCreateReminder } from "@/hooks/use-reminders";
 import { useCreateTask } from "@/hooks/use-tasks";
 import { useProjects } from "@/hooks/use-projects";
-import { useAreas } from "@/hooks/use-areas";
 import { TimePicker } from "@/components/ui/time-picker";
 
 type Mode = "todo" | "task" | "reminder";
@@ -24,12 +23,14 @@ export function QuickAdd() {
   const [pendingDate, setPendingDate] = useState("");
   const [remindTime, setRemindTime] = useState("");
   const [projectId, setProjectId] = useState("");
-  const [areaId, setAreaId] = useState("");
+  // mutate() 是 fire-and-forget，之前失敗（例如 migration 還沒跑、欄位不存在）
+  // 也會馬上 resetPending()，表單直接收起來看起來像成功了，其實什麼都沒建立。
+  // 改用 mutateAsync + try/catch，失敗就留著表單、顯示錯誤，不要默默消失。
+  const [error, setError] = useState<string | null>(null);
   const createTodo = useCreateTodo();
   const createTask = useCreateTask();
   const createReminder = useCreateReminder();
   const { data: projects } = useProjects();
-  const { data: areas } = useAreas();
 
   function resetPending() {
     setPendingTitle(null);
@@ -37,7 +38,7 @@ export function QuickAdd() {
     setPendingDate("");
     setRemindTime("");
     setProjectId("");
-    setAreaId("");
+    setError(null);
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -47,46 +48,60 @@ export function QuickAdd() {
     setPendingTitle(title); // 等使用者選日期／時間（可選 Project）才真的建立
   }
 
-  function handleCreateTodoOrTask(e: React.FormEvent) {
+  async function handleCreateTodoOrTask(e: React.FormEvent) {
     e.preventDefault();
     if (!pendingTitle) return;
     const project = projects?.find((p) => p.id === projectId);
+    setError(null);
 
-    if (mode === "todo") {
-      createTodo.mutate({
-        title: pendingTitle,
-        date: pendingDate || null,
-        project_id: project?.id ?? null,
-        area_id: project?.area_id ?? null,
-      });
-    } else {
-      createTask.mutate({
-        title: pendingTitle,
-        scheduled_date: pendingDate || null,
-        // QuickAdd 這裡沒有時間選擇器，只選日期沒選時間的話，沒設 is_all_day
-        // 就會卡在「不是全天、又沒有 start/end」這種兩邊都不算的狀態——
-        // Calendar 兩種畫法都會直接跳過它，看起來就像消失了。選了日期就當
-        // 全天處理，畫在「全天」那排，要排精確時段的話再去面板改。
-        is_all_day: !!pendingDate,
-        project_id: project?.id ?? null,
-        area_id: project?.area_id ?? null,
-      });
+    try {
+      if (mode === "todo") {
+        await createTodo.mutateAsync({
+          title: pendingTitle,
+          date: pendingDate || null,
+          project_id: project?.id ?? null,
+          area_id: project?.area_id ?? null,
+        });
+      } else {
+        await createTask.mutateAsync({
+          title: pendingTitle,
+          scheduled_date: pendingDate || null,
+          // QuickAdd 這裡沒有時間選擇器，只選日期沒選時間的話，沒設 is_all_day
+          // 就會卡在「不是全天、又沒有 start/end」這種兩邊都不算的狀態——
+          // Calendar 兩種畫法都會直接跳過它，看起來就像消失了。選了日期就當
+          // 全天處理，畫在「全天」那排，要排精確時段的話再去面板改。
+          is_all_day: !!pendingDate,
+          project_id: project?.id ?? null,
+          area_id: project?.area_id ?? null,
+        });
+      }
+      resetPending();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "新增失敗，請再試一次");
     }
-    resetPending();
   }
 
-  function handleCreateReminder(e: React.FormEvent) {
+  async function handleCreateReminder(e: React.FormEvent) {
     e.preventDefault();
     if (!pendingDate || !remindTime || !pendingTitle) return;
     const project = projects?.find((p) => p.id === projectId);
-    createReminder.mutate({
-      linkedType: project ? "project" : "standalone",
-      linkedId: project?.id,
-      areaId: project?.area_id ?? (areaId || null),
-      remindAt: new Date(`${pendingDate}T${remindTime}`).toISOString(),
-      title: pendingTitle,
-    });
-    resetPending();
+    setError(null);
+
+    try {
+      // 這裡沒有另外選 Area——跟 Task/Todo 一樣，選了 Project 就帶出它的
+      // Area；沒選 Project 就先不分類（未分類不會出現在 Calendar 上），
+      // 之後要單獨分類到個人/工作、但不掛 Project，再去提醒詳細面板選 Area。
+      await createReminder.mutateAsync({
+        linkedType: project ? "project" : "standalone",
+        linkedId: project?.id,
+        areaId: project?.area_id ?? null,
+        remindAt: new Date(`${pendingDate}T${remindTime}`).toISOString(),
+        title: pendingTitle,
+      });
+      resetPending();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "新增失敗，請再試一次");
+    }
   }
 
   if (pendingTitle && (mode === "todo" || mode === "task")) {
@@ -129,12 +144,14 @@ export function QuickAdd() {
             新增
           </button>
         </div>
+        {error && <p className="text-xs text-red-500">{error}</p>}
       </form>
     );
   }
 
   if (pendingTitle && mode === "reminder") {
-    // 同上——原本桌面版單行塞標題+日期+時間+Project 下拉+新增+取消，
+    // 跟 Task/Todo 一樣，不另外選 Area——選了 Project 就帶出它的 Area，
+    // 沒選就先不分類；原本桌面版單行塞標題+日期+時間+Project+新增+取消，
     // 元素比 Task/Todo 那排還多一個 TimePicker，Project 下拉幾乎必定被擠到
     // 選不到，很容易就漏選 Project、提醒因此不會出現在 Calendar 上卻不知道
     // 為什麼。統一改成多行版面，每個欄位都看得到、點得到。
@@ -162,38 +179,22 @@ export function QuickAdd() {
         </div>
         <div className="flex items-center gap-2">
           <select
-            value={areaId}
-            onChange={(e) => {
-              setAreaId(e.target.value);
-              setProjectId(""); // 換 Area 後原本選的 Project 可能不屬於它
-            }}
-            className="min-w-0 flex-1 rounded-md border border-neutral-300 px-2 py-1.5 text-sm text-neutral-600"
-          >
-            <option value="">未分類（不會顯示在 Calendar）</option>
-            {areas?.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.type === "personal" ? "個人" : "工作"}
-              </option>
-            ))}
-          </select>
-          <select
             value={projectId}
             onChange={(e) => setProjectId(e.target.value)}
             className="min-w-0 flex-1 rounded-md border border-neutral-300 px-2 py-1.5 text-sm text-neutral-600"
           >
-            <option value="">不掛 Project</option>
-            {projects
-              ?.filter((p) => !areaId || p.area_id === areaId)
-              .map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
+            <option value="">不掛 Project（不會顯示在 Calendar）</option>
+            {projects?.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
           </select>
+          <button type="submit" className="shrink-0 rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white">
+            新增
+          </button>
         </div>
-        <button type="submit" className="w-full rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white">
-          新增
-        </button>
+        {error && <p className="text-xs text-red-500">{error}</p>}
       </form>
     );
   }
