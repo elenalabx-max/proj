@@ -9,6 +9,17 @@ import { TimePicker } from "@/components/ui/time-picker";
 
 type Mode = "todo" | "task" | "reminder";
 
+// Supabase 的 PostgrestError 是純物件、不是真的 Error 子類別，err instanceof
+// Error 永遠是 false——直接顯示我們自己的萬用訊息，把 Postgres 真正回來的
+// 錯誤內容（例如「欄位不存在」「RLS 擋掉」）蓋掉，等於白做了錯誤處理。
+function errorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === "object" && "message" in err && typeof (err as { message: unknown }).message === "string") {
+    return (err as { message: string }).message;
+  }
+  return "新增失敗，請再試一次";
+}
+
 // 全站快速新增：只要標題，Enter 就送進 Inbox（見規劃書第 38 節）。
 // Todo／Task／提醒都是標題送出後多一步選日期（可選加 Project）才真的建立——
 // 提醒一定要有時間；Todo／Task 沒選日期就留在 Inbox（Todo: date=null，
@@ -77,7 +88,7 @@ export function QuickAdd() {
       }
       resetPending();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "新增失敗，請再試一次");
+      setError(errorMessage(err));
     }
   }
 
@@ -100,7 +111,7 @@ export function QuickAdd() {
       });
       resetPending();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "新增失敗，請再試一次");
+      setError(errorMessage(err));
     }
   }
 
